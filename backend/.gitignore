@@ -69,3 +69,8 @@ docs/superpowers/
 # TypeScript incremental build cache
 *.tsbuildinfo
 
+
+/generated/prisma
+.agents/
+.windsurf/
+skills-lock.json
