@@ -1,0 +1,40 @@
+enum ExpenseCategory {
+  FUEL
+  SERVICE
+  REPAIR
+  TYRES
+  BATTERY
+  MOD
+  INSURANCE
+  OTHER
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  carId       String
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(10, 2)
+  currency    String          @default("INR")
+  expenseDate DateTime
+  odometerKm  Int?
+  notes       String?
+
+  // Category-specific fields — nullable columns, not a table per category
+  // (matches Section 5's documented approach for Expense).
+  workshopName      String? // service, repair
+  workPerformed     String? // service
+  whatBroke         String? // repair
+  litres            Decimal? @db.Decimal(8, 2) // fuel
+  fuelPricePerLitre Decimal? @db.Decimal(8, 2) // fuel
+  fuelStation       String? // fuel
+  tyreBrand         String? // tyres
+  tyreSize          String? // tyres
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId, expenseDate(sort: Desc)])
+  @@map("expenses")
+}

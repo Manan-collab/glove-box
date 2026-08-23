@@ -3,6 +3,8 @@ import { LogLevel, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import type { Express } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -18,7 +20,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: logLevels });
   const configService = app.get(ConfigService);
 
+  // Deploy platforms (Render, Railway, etc.) sit behind a reverse proxy —
+  // without this, every request appears to come from the proxy's internal
+  // IP, which breaks per-client rate limiting (@nestjs/throttler uses req.ip).
+  if (isProduction) {
+    const expressApp = app.getHttpAdapter().getInstance() as Express;
+    expressApp.set('trust proxy', 1);
+  }
+
   app.use(helmet());
+  app.use(cookieParser());
   app.enableCors({
     origin: configService.get<string>('app.frontendUrl'),
     credentials: true,
@@ -34,7 +45,11 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.useGlobalFilters(new PrismaExceptionFilter(), new AllExceptionsFilter());
+  // Order matters: Nest checks global filters in REVERSE registration order,
+  // so the more specific filter must be registered LAST to actually get a
+  // chance before AllExceptionsFilter's bare @Catch() (which matches
+  // everything) swallows the exception first.
+  app.useGlobalFilters(new AllExceptionsFilter(), new PrismaExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
   const swaggerConfig = new DocumentBuilder()
