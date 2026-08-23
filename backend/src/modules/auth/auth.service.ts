@@ -2,7 +2,6 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
-import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { toSafeUser } from './utils/to-safe-user';
 
@@ -81,15 +80,16 @@ export class AuthService {
         },
       });
     } catch (error) {
-      const isDuplicate =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002';
-      if (!isDuplicate) {
+      if (!this.isUniqueConstraintViolation(error)) {
         throw error;
       }
-      const winner = await this.prisma.user.findUnique({
-        where: { googleId: payload.sub },
-      });
+      const winner =
+        (await this.prisma.user.findUnique({
+          where: { googleId: payload.sub },
+        })) ??
+        (await this.prisma.user.findUnique({
+          where: { email: payload.email! },
+        }));
       if (!winner) throw error;
       return winner;
     }
@@ -113,6 +113,15 @@ export class AuthService {
       if (!existing) return candidate;
     }
     throw new Error('Could not generate a unique username');
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2002'
+    );
   }
 
   private issueTokens(userId: string) {

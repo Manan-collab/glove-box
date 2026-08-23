@@ -112,7 +112,7 @@ DATABASE_URL="<production-url>" npx prisma migrate deploy
 ```
 
 ### 2. Backend (Render, Railway, Fly.io, or similar)
-- **Build command:** `npm install && npm run build` (Prisma Client regenerates automatically via the `postinstall` hook)
+- **Build command:** `npm install && npm run build:render` (runs `prisma migrate deploy` before building — `/health` only pings the DB, so auth will 409 if migrations never ran on the production database)
 - **Start command:** `npm run start:prod`
 - **Health check path:** `/health`
 - **Environment variables** (see `backend/.env.example`):

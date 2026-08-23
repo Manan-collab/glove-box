@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
 @Injectable()
@@ -14,13 +15,18 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
+  private readonly pool: Pool;
 
   constructor(configService: ConfigService) {
-    super({
-      adapter: new PrismaPg({
-        connectionString: configService.getOrThrow<string>('database.url'),
-      }),
+    const pool = new Pool({
+      connectionString: configService.getOrThrow<string>('database.url'),
+      // Neon pooler + Render: keep the per-instance pool small; the pooler
+      // shares real connections across replicas/functions.
+      max: 5,
+      connectionTimeoutMillis: 10_000,
     });
+    super({ adapter: new PrismaPg(pool) });
+    this.pool = pool;
   }
 
   async onModuleInit() {
@@ -30,5 +36,6 @@ export class PrismaService
 
   async onModuleDestroy() {
     await this.$disconnect();
+    await this.pool.end();
   }
 }

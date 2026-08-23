@@ -3,6 +3,7 @@ import {
   Catch,
   ConflictException,
   ExceptionFilter,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -10,6 +11,8 @@ import { Prisma } from '../../../generated/prisma/client';
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaExceptionFilter.name);
+
   catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
     const mapped = this.toHttpException(exception);
     const response = host.switchToHttp().getResponse<Response>();
@@ -29,7 +32,13 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       case 'P2025':
         return new NotFoundException('Resource not found');
       default:
-        return new ConflictException('Database request could not be completed');
+        this.logger.error(
+          `Unhandled Prisma error ${exception.code}: ${exception.message}`,
+          exception.stack,
+        );
+        return new ConflictException(
+          `Database request could not be completed (${exception.code})`,
+        );
     }
   }
 }
