@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { toSafeUser } from './utils/to-safe-user';
 
@@ -62,15 +63,36 @@ export class AuthService {
     if (existing) return existing;
 
     const username = await this.generateUsername(payload.email!);
-    return this.prisma.user.create({
-      data: {
-        googleId: payload.sub,
-        email: payload.email!,
-        username,
-        displayName: payload.name,
-        avatarUrl: payload.picture,
-      },
-    });
+    // No $transaction here — see Section 0's Prisma driver-adapter gotcha.
+    // Google's credential callback can fire twice in some browser/FedCM
+    // configurations, so two concurrent sign-ins can both pass the
+    // findUnique check above and both attempt create(); the loser hits a
+    // unique-constraint conflict on googleId/email rather than a real error
+    // — treat that as a successful sign-in and return the row the other
+    // request created, instead of surfacing it as a failed login.
+    try {
+      return await this.prisma.user.create({
+        data: {
+          googleId: payload.sub,
+          email: payload.email!,
+          username,
+          displayName: payload.name,
+          avatarUrl: payload.picture,
+        },
+      });
+    } catch (error) {
+      const isDuplicate =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002';
+      if (!isDuplicate) {
+        throw error;
+      }
+      const winner = await this.prisma.user.findUnique({
+        where: { googleId: payload.sub },
+      });
+      if (!winner) throw error;
+      return winner;
+    }
   }
 
   private async generateUsername(email: string): Promise<string> {

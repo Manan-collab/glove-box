@@ -1,5 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
+import { Prisma } from '../../../generated/prisma/client';
 import { AuthService } from './auth.service';
 
 jest.mock('google-auth-library');
@@ -126,6 +127,53 @@ describe('AuthService', () => {
 
       const [[createArgs]] = prisma.user.create.mock.calls;
       expect(createArgs.data.username).toMatch(/^mananmer\d{4}$/);
+    });
+
+    it('logs in the winner instead of failing when two concurrent sign-ins race on create (e.g. a double-fired Google credential callback)', async () => {
+      verifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          sub: 'google-sub-789',
+          email: 'manan.mer@example.com',
+          name: 'Manan Mer',
+        }),
+      });
+      const winner = {
+        id: 'user-3',
+        email: 'manan.mer@example.com',
+        username: 'mananmer',
+        googleId: 'google-sub-789',
+        displayName: 'Manan Mer',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      // First googleId lookup (the race window) finds nothing; the one
+      // *after* the create() conflict finds the other request's winning row.
+      let googleIdLookups = 0;
+      prisma.user.findUnique.mockImplementation(({ where }: any) => {
+        if (where.googleId) {
+          googleIdLookups += 1;
+          return Promise.resolve(googleIdLookups === 1 ? null : winner);
+        }
+        if (where.username === 'mananmer') return Promise.resolve(null);
+        return Promise.resolve(null);
+      });
+      const duplicateError = Object.assign(new Error('duplicate'), {
+        code: 'P2002',
+      });
+      Object.setPrototypeOf(
+        duplicateError,
+        Prisma.PrismaClientKnownRequestError.prototype,
+      );
+      prisma.user.create.mockRejectedValue(duplicateError);
+
+      const result = await service.authenticateWithGoogle('valid-credential');
+
+      expect(result.user.id).toBe('user-3');
+      expect(result.tokens).toEqual({
+        accessToken: 'signed-token',
+        refreshToken: 'signed-token',
+      });
     });
 
     it('logs in an existing user without creating a new row', async () => {
