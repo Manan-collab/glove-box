@@ -2,7 +2,6 @@
 
 import { createTheme } from "@mui/material/styles";
 
-// Design tokens lifted from glovebox-dashboard-design.html's :root / [data-theme="dark"] CSS variables.
 export const theme = createTheme({
   cssVariables: { colorSchemeSelector: "data" },
   shape: { borderRadius: 14 },
