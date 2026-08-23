@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
 
 export class ApiError extends Error {
   constructor(
@@ -10,15 +10,18 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
+// Shared by the JSON request() helper below and by data-io-api.ts's raw
+// fetch calls (multipart upload, Blob download) — those can't go through
+// request() since it hardcodes a JSON Content-Type and JSON-parses the body,
+// but they still need the same "access token expired mid-action" resilience.
+export async function fetchWithRefresh(
   path: string,
-  options: RequestInit = {},
+  init: RequestInit = {},
   isRetry = false,
-): Promise<T> {
+): Promise<Response> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
+    ...init,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
   });
 
   if (res.status === 401 && !isRetry && path !== "/auth/refresh") {
@@ -27,17 +30,30 @@ async function request<T>(
       credentials: "include",
     });
     if (refreshed.ok) {
-      return request<T>(path, options, true);
+      return fetchWithRefresh(path, init, true);
     }
   }
 
+  return res;
+}
+
+export async function throwApiError(res: Response): Promise<never> {
+  const body: unknown = await res.json().catch(() => ({}));
+  const message =
+    typeof body === "object" && body !== null && "message" in body
+      ? String((body as { message: unknown }).message)
+      : "Request failed";
+  throw new ApiError(res.status, message);
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetchWithRefresh(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options.headers },
+  });
+
   if (!res.ok) {
-    const body: unknown = await res.json().catch(() => ({}));
-    const message =
-      typeof body === "object" && body !== null && "message" in body
-        ? String((body as { message: unknown }).message)
-        : "Request failed";
-    throw new ApiError(res.status, message);
+    return throwApiError(res);
   }
 
   if (res.status === 204) {

@@ -8,6 +8,7 @@ import { PrismaModule } from './database/prisma.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CarsModule } from './modules/cars/cars.module';
+import { DataIoModule } from './modules/data-io/data-io.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { HealthModule } from './modules/health/health.module';
@@ -29,6 +30,7 @@ import { UsersModule } from './modules/users/users.module';
     AnalyticsModule,
     FriendsModule,
     UsersModule,
+    DataIoModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

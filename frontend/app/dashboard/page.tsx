@@ -4,6 +4,7 @@ import { Alert, Box, Button, CircularProgress, Grid, Stack, Typography } from "@
 import { useState } from "react";
 import { CarCard } from "@/features/cars/car-card";
 import { CarFormDialog } from "@/features/cars/car-form-dialog";
+import { DataIoDialog } from "@/features/data-io/data-io-dialog";
 import { useCars, useCreateCar } from "@/hooks/use-cars";
 import { useMe } from "@/hooks/use-auth";
 
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const { data: cars, isLoading, isError } = useCars();
   const createCar = useCreateCar();
   const [addOpen, setAddOpen] = useState(false);
+  const [dataIoOpen, setDataIoOpen] = useState(false);
 
   const carCount = cars?.data.length ?? 0;
 
@@ -39,9 +41,14 @@ export default function DashboardPage() {
               : `${carCount} car${carCount > 1 ? "s" : ""} in your garage.`}
           </Typography>
         </Box>
-        <Button variant="contained" onClick={() => setAddOpen(true)}>
-          + Add Car
-        </Button>
+        <Stack direction="row" spacing={1.5}>
+          <Button variant="outlined" onClick={() => setDataIoOpen(true)}>
+            Import / Export
+          </Button>
+          <Button variant="contained" onClick={() => setAddOpen(true)}>
+            + Add Car
+          </Button>
+        </Stack>
       </Stack>
 
       {isLoading && (
@@ -80,6 +87,8 @@ export default function DashboardPage() {
           });
         }}
       />
+
+      <DataIoDialog open={dataIoOpen} onClose={() => setDataIoOpen(false)} />
     </Stack>
   );
 }

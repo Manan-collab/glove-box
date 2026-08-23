@@ -18,19 +18,19 @@ export default () => {
     nodeEnv === 'production' || !isLocalFrontend(frontendUrl);
 
   return {
-  app: {
-    port: parseInt(process.env.PORT ?? '3000', 10),
-    nodeEnv,
-    frontendUrl,
-    cookieCrossSite,
-  },
-  database: {
-    url: process.env.DATABASE_URL,
-  },
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    refreshSecret: process.env.JWT_REFRESH_SECRET,
-  },
-  google: { clientId: process.env.GOOGLE_CLIENT_ID },
+    app: {
+      port: parseInt(process.env.PORT ?? '3000', 10),
+      nodeEnv,
+      frontendUrl,
+      cookieCrossSite,
+    },
+    database: {
+      url: process.env.DATABASE_URL,
+    },
+    jwt: {
+      secret: process.env.JWT_SECRET,
+      refreshSecret: process.env.JWT_REFRESH_SECRET,
+    },
+    google: { clientId: process.env.GOOGLE_CLIENT_ID },
   };
 };
