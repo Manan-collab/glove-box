@@ -66,27 +66,30 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/' });
+    const shared = this.authCookieOptions();
+    res.clearCookie('access_token', shared);
+    res.clearCookie('refresh_token', shared);
     return { success: true };
+  }
+
+  private authCookieOptions(): CookieOptions {
+    const crossSite = this.config.get<boolean>('app.cookieCrossSite') ?? false;
+    return {
+      httpOnly: true,
+      secure: crossSite,
+      // Frontend (Vercel) and backend (Render) are different sites — cookies
+      // scoped to the API host need SameSite=None or the browser won't attach
+      // them on credentialed fetch/XHR from the frontend origin.
+      sameSite: crossSite ? 'none' : 'lax',
+      path: '/',
+    };
   }
 
   private setAuthCookies(
     res: Response,
     tokens: { accessToken: string; refreshToken: string },
   ) {
-    const isProduction =
-      this.config.get<string>('app.nodeEnv') === 'production';
-    const shared: CookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      // Frontend (Vercel) and backend (Render/Railway/etc.) are on different
-      // domains in production, so the cookie must be sent cross-site — that
-      // requires SameSite=None, which browsers only honor when Secure is also
-      // set. Locally frontend/backend share "localhost" so Lax is fine there.
-      sameSite: isProduction ? 'none' : 'lax',
-      path: '/',
-    };
+    const shared = this.authCookieOptions();
     res.cookie('access_token', tokens.accessToken, {
       ...shared,
       maxAge: ACCESS_TOKEN_MAX_AGE_MS,

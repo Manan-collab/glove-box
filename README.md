@@ -119,7 +119,8 @@ DATABASE_URL="<production-url>" npx prisma migrate deploy
   - `NODE_ENV=production`
   - `DATABASE_URL` — your production Postgres connection string
   - `JWT_SECRET`, `JWT_REFRESH_SECRET` — generate fresh, unique 32+ character secrets for production; never reuse dev values
-  - `FRONTEND_URL` — your deployed frontend's exact origin (e.g. `https://glovebox.vercel.app`) — CORS only allows this one origin
+  - `FRONTEND_URL` — your deployed frontend's **exact** origin (e.g. `https://glovebox.vercel.app`, no trailing slash) — CORS only allows this one origin, and auth cookies switch to `SameSite=None; Secure` whenever this is not `localhost`
+  - `NODE_ENV=production` — recommended on Render; even without it, a non-localhost `FRONTEND_URL` still enables cross-site cookies
   - `GOOGLE_CLIENT_ID` — same Google OAuth Client ID as the frontend
 
 ### 3. Frontend (Vercel)
