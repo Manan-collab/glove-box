@@ -3,6 +3,7 @@ import {
   Catch,
   ConflictException,
   ExceptionFilter,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -32,11 +33,15 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       case 'P2025':
         return new NotFoundException('Resource not found');
       default:
+        // Anything else (e.g. P2022 "column does not exist" from a schema
+        // drift, P2024 pool-timeout, a raw connection failure) is not a
+        // conflict — mislabeling it as 409 sends debugging in the wrong
+        // direction. Surface it as a real server error instead.
         this.logger.error(
           `Unhandled Prisma error ${exception.code}: ${exception.message}`,
           exception.stack,
         );
-        return new ConflictException(
+        return new InternalServerErrorException(
           `Database request could not be completed (${exception.code})`,
         );
     }

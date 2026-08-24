@@ -70,8 +70,9 @@ export default function DashboardLayout({
           display: { xs: "none", md: "flex" },
           flexDirection: "column",
           p: 2,
-          position: "sticky",
+          position: "fixed",
           top: 0,
+          left: 0,
           height: "100dvh",
         }}
       >
@@ -100,7 +101,15 @@ export default function DashboardLayout({
         <QuickAddExpenseDialog open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
       </Box>
 
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          ml: { xs: 0, md: `${SIDEBAR_WIDTH}px` },
+        }}
+      >
         <Box
           component="header"
           sx={{

@@ -18,6 +18,7 @@ export function CarCard({ car }: { car: Car }) {
         color: "inherit",
         position: "relative",
         overflow: "hidden",
+        border: "none",
         transition: "box-shadow .2s, transform .2s",
         "&:hover": {
           boxShadow: "0 14px 32px -18px rgba(20,20,30,0.4)",
