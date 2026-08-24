@@ -282,4 +282,106 @@ describe('Analytics (e2e)', () => {
       expect.arrayContaining([{ category: 'SERVICE', total: 1500 }]),
     );
   });
+
+  it('period filter narrows totals and repair spend, while year-over-year stays on full calendar years', async () => {
+    const userD = await prisma.user.create({
+      data: {
+        googleId: `an-e2e-d-${Date.now()}`,
+        email: `an-e2e-d-${Date.now()}@example.com`,
+        username: `ane2ed${Date.now()}`,
+      },
+    });
+    createdUserIds.push(userD.id);
+    const userDToken = jwt.sign(
+      { sub: userD.id },
+      { secret: jwtSecret, expiresIn: '15m' },
+    );
+
+    const carD = await prisma.car.create({
+      data: {
+        make: 'Kia',
+        model: 'Seltos',
+        year: 2021,
+        variant: 'HTX',
+        engine: '1.5L',
+        fuelType: 'Petrol',
+        transmission: 'Manual',
+        bodyType: 'SUV',
+        odometerKm: 30000,
+        userId: userD.id,
+      },
+    });
+
+    const now = new Date();
+    const thisYear = now.getFullYear();
+
+    // Dated "today" — always inside this calendar year and inside any
+    // "last N days/months" window, regardless of when the suite runs.
+    await prisma.expense.create({
+      data: {
+        carId: carD.id,
+        category: 'FUEL',
+        amount: '1000.00',
+        expenseDate: now,
+      },
+    });
+    // Fixed to January of last calendar year — always outside "last 30
+    // days" but always inside the year-over-year "last year" bucket.
+    await prisma.expense.create({
+      data: {
+        carId: carD.id,
+        category: 'FUEL',
+        amount: '2000.00',
+        expenseDate: new Date(thisYear - 1, 0, 15),
+      },
+    });
+    // Three years back — outside every period filter AND outside the
+    // year-over-year window, so it only shows up in the all-time totals.
+    await prisma.expense.create({
+      data: {
+        carId: carD.id,
+        category: 'REPAIR',
+        amount: '5000.00',
+        expenseDate: new Date(thisYear - 3, 0, 15),
+      },
+    });
+
+    const asUserD = { Cookie: [`access_token=${userDToken}`] };
+
+    const allTime = await request(app.getHttpServer())
+      .get('/analytics/garage')
+      .set(asUserD)
+      .expect(200);
+    expect(allTime.body.totalSpend).toBe(8000);
+    expect(allTime.body.carComparison[0].repairSpend).toBe(5000);
+
+    const last30Days = await request(app.getHttpServer())
+      .get('/analytics/garage?period=LAST_30_DAYS')
+      .set(asUserD)
+      .expect(200);
+    expect(last30Days.body.totalSpend).toBe(1000);
+    expect(last30Days.body.carComparison[0].repairSpend).toBe(0);
+
+    // Year-over-year ignores the period query param entirely.
+    expect(allTime.body.yearOverYear).toEqual(
+      expect.objectContaining({
+        categories: expect.arrayContaining([
+          {
+            category: 'FUEL',
+            thisYear: 1000,
+            lastYear: 2000,
+            percentChange: -50,
+          },
+        ]),
+      }),
+    );
+    expect(last30Days.body.yearOverYear).toEqual(allTime.body.yearOverYear);
+  });
+
+  it('rejects an invalid period value with 400', () => {
+    return request(app.getHttpServer())
+      .get('/analytics/garage?period=NOT_A_REAL_PERIOD')
+      .set(asUserA())
+      .expect(400);
+  });
 });

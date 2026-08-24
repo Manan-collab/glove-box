@@ -59,30 +59,56 @@ export function getInsuranceDaysLeft(car: Car): number | null {
   return Math.ceil((new Date(car.insuranceExpiryDate).getTime() - Date.now()) / DAY_MS);
 }
 
+export interface HealthScoreComponent {
+  label: string;
+  score: number;
+  detail: string;
+}
+
 export interface HealthScore {
   score: number | null;
+  components: HealthScoreComponent[];
 }
 
 // Two independent 0-100 components, averaged over whichever ones have real
 // data behind them. Never fabricated: with no service history and no
 // insurance date set, this returns null and no badge is shown at all.
+// `components` reports each contributing factor on its own so the UI can
+// show *why* a car scored what it did, not just the final number.
 export function getHealthScore(car: Car, expenses: Expense[]): HealthScore {
-  const components: number[] = [];
+  const components: HealthScoreComponent[] = [];
 
   const kmSinceService = getLastServiceKmAgo(car, expenses);
   if (kmSinceService != null) {
-    components.push(Math.min(100, Math.max(0, 100 - (kmSinceService / SERVICE_INTERVAL_KM) * 100)));
+    const serviceScore = Math.min(100, Math.max(0, 100 - (kmSinceService / SERVICE_INTERVAL_KM) * 100));
+    components.push({
+      label: "Service recency",
+      score: Math.round(serviceScore),
+      detail: `${kmSinceService.toLocaleString()} km since last service (${SERVICE_INTERVAL_KM.toLocaleString()} km interval)`,
+    });
   }
 
   const daysLeft = getInsuranceDaysLeft(car);
   if (daysLeft != null) {
-    if (daysLeft < 0) components.push(0);
-    else if (daysLeft < 30) components.push(40);
-    else if (daysLeft < 90) components.push(75);
-    else components.push(100);
+    let insuranceScore: number;
+    let detail: string;
+    if (daysLeft < 0) {
+      insuranceScore = 0;
+      detail = "Insurance expired";
+    } else if (daysLeft < 30) {
+      insuranceScore = 40;
+      detail = `Insurance expires in ${daysLeft} days`;
+    } else if (daysLeft < 90) {
+      insuranceScore = 75;
+      detail = `Insurance expires in ${daysLeft} days`;
+    } else {
+      insuranceScore = 100;
+      detail = `Insurance valid for ${daysLeft} more days`;
+    }
+    components.push({ label: "Insurance", score: insuranceScore, detail });
   }
 
-  if (components.length === 0) return { score: null };
-  const average = components.reduce((sum, value) => sum + value, 0) / components.length;
-  return { score: Math.round(average) };
+  if (components.length === 0) return { score: null, components: [] };
+  const average = components.reduce((sum, c) => sum + c.score, 0) / components.length;
+  return { score: Math.round(average), components };
 }

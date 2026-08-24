@@ -1,6 +1,8 @@
 import { apiClient } from "./api-client";
 import type { ExpenseCategory } from "@/features/expenses/expense-categories";
 
+export type AnalyticsPeriod = "ALL" | "LAST_30_DAYS" | "LAST_6_MONTHS" | "LAST_1_YEAR";
+
 export interface CategoryBreakdown {
   category: ExpenseCategory;
   total: number;
@@ -19,6 +21,23 @@ export interface CarComparison {
   totalSpend: number;
   costPerKm: number | null;
   trackedKm: number | null;
+  repairSpend: number;
+}
+
+export interface YearOverYearCategory {
+  category: ExpenseCategory;
+  thisYear: number;
+  lastYear: number;
+  percentChange: number | null;
+}
+
+export interface YearOverYear {
+  thisYearLabel: string;
+  lastYearLabel: string;
+  categories: YearOverYearCategory[];
+  totalThisYear: number;
+  totalLastYear: number;
+  totalPercentChange: number | null;
 }
 
 export interface CarAnalytics {
@@ -27,6 +46,7 @@ export interface CarAnalytics {
   trackedKm: number | null;
   spendByCategory: CategoryBreakdown[];
   monthlySpend: MonthlySpend[];
+  yearOverYear: YearOverYear;
 }
 
 export interface RecentExpense {
@@ -48,12 +68,13 @@ export interface GarageAnalytics {
   carComparison: CarComparison[];
   recentExpenses: RecentExpense[];
   currentMonthSpendByCategory: CategoryBreakdown[];
+  yearOverYear: YearOverYear;
 }
 
-export function getGarageAnalytics() {
-  return apiClient.get<GarageAnalytics>("/analytics/garage");
+export function getGarageAnalytics(period: AnalyticsPeriod = "ALL") {
+  return apiClient.get<GarageAnalytics>(`/analytics/garage?period=${period}`);
 }
 
-export function getCarAnalytics(carId: string) {
-  return apiClient.get<CarAnalytics>(`/analytics/cars/${carId}`);
+export function getCarAnalytics(carId: string, period: AnalyticsPeriod = "ALL") {
+  return apiClient.get<CarAnalytics>(`/analytics/cars/${carId}?period=${period}`);
 }

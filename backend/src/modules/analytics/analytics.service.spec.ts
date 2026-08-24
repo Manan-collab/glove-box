@@ -1,15 +1,28 @@
+import { AnalyticsPeriod } from './dto/analytics-query.dto';
 import { AnalyticsService } from './analytics.service';
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService;
   let prisma: {
     car: { findMany: jest.Mock };
-    expense: { aggregate: jest.Mock; groupBy: jest.Mock; findMany: jest.Mock };
+    expense: {
+      aggregate: jest.Mock;
+      groupBy: jest.Mock;
+      findMany: jest.Mock;
+    };
     $queryRaw: jest.Mock;
   };
   let carsService: { findOneForUser: jest.Mock };
 
   const CAR = { id: 'car-1', make: 'Honda', model: 'Civic', year: 2020 };
+  const NO_ODOMETER = {
+    _min: { odometerKm: null },
+    _max: { odometerKm: null },
+  };
+  // Covers every aggregate shape this service reads (_sum for totals/repair
+  // spend, _min/_max for the odometer query) so tests that don't care about
+  // a particular aggregate call can rely on this default without crashing.
+  const ZERO_SUM = { _sum: { amount: null }, ...NO_ODOMETER };
 
   beforeEach(() => {
     prisma = {
@@ -22,6 +35,9 @@ describe('AnalyticsService', () => {
       $queryRaw: jest.fn(),
     };
     prisma.expense.findMany.mockResolvedValue([]);
+    prisma.expense.groupBy.mockResolvedValue([]);
+    prisma.expense.aggregate.mockResolvedValue(ZERO_SUM);
+    prisma.$queryRaw.mockResolvedValue([]);
     carsService = { findOneForUser: jest.fn() };
     service = new AnalyticsService(prisma as any, carsService as any);
   });
@@ -70,12 +86,7 @@ describe('AnalyticsService', () => {
       carsService.findOneForUser.mockResolvedValue(CAR);
       prisma.expense.aggregate
         .mockResolvedValueOnce({ _sum: { amount: '1000.00' } })
-        .mockResolvedValueOnce({
-          _min: { odometerKm: null },
-          _max: { odometerKm: null },
-        });
-      prisma.expense.groupBy.mockResolvedValue([]);
-      prisma.$queryRaw.mockResolvedValue([]);
+        .mockResolvedValueOnce(NO_ODOMETER);
 
       const result = await service.forCar('user-1', 'car-1');
 
@@ -87,16 +98,52 @@ describe('AnalyticsService', () => {
       carsService.findOneForUser.mockResolvedValue(CAR);
       prisma.expense.aggregate
         .mockResolvedValueOnce({ _sum: { amount: null } })
-        .mockResolvedValueOnce({
-          _min: { odometerKm: null },
-          _max: { odometerKm: null },
-        });
-      prisma.expense.groupBy.mockResolvedValue([]);
-      prisma.$queryRaw.mockResolvedValue([]);
+        .mockResolvedValueOnce(NO_ODOMETER);
 
       const result = await service.forCar('user-1', 'car-1');
 
       expect(result.totalSpend).toBe(0);
+    });
+
+    it('narrows totalSpend and cost/km to expenses within the selected period', async () => {
+      carsService.findOneForUser.mockResolvedValue(CAR);
+      prisma.expense.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: '1000.00' } })
+        .mockResolvedValueOnce(NO_ODOMETER);
+
+      await service.forCar('user-1', 'car-1', AnalyticsPeriod.LAST_30_DAYS);
+
+      expect(prisma.expense.aggregate).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            carId: { in: ['car-1'] },
+            expenseDate: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+      expect(prisma.expense.aggregate).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            expenseDate: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('does not filter by date when period is ALL (the default)', async () => {
+      carsService.findOneForUser.mockResolvedValue(CAR);
+      prisma.expense.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: '1000.00' } })
+        .mockResolvedValueOnce(NO_ODOMETER);
+
+      await service.forCar('user-1', 'car-1');
+
+      expect(prisma.expense.aggregate).toHaveBeenNthCalledWith(1, {
+        where: { carId: { in: ['car-1'] } },
+        _sum: { amount: true },
+      });
     });
   });
 
@@ -108,17 +155,11 @@ describe('AnalyticsService', () => {
       ]);
       prisma.expense.aggregate
         .mockResolvedValueOnce({ _sum: { amount: '4500.00' } }) // car-1 total
-        .mockResolvedValueOnce({
-          _min: { odometerKm: null },
-          _max: { odometerKm: null },
-        }) // car-1 odometer
+        .mockResolvedValueOnce(NO_ODOMETER) // car-1 odometer
+        .mockResolvedValueOnce(ZERO_SUM) // car-1 repair spend
         .mockResolvedValueOnce({ _sum: { amount: '2000.00' } }) // car-2 total
-        .mockResolvedValueOnce({
-          _min: { odometerKm: null },
-          _max: { odometerKm: null },
-        }); // car-2 odometer
-      prisma.expense.groupBy.mockResolvedValue([]);
-      prisma.$queryRaw.mockResolvedValue([]);
+        .mockResolvedValueOnce(NO_ODOMETER) // car-2 odometer
+        .mockResolvedValueOnce(ZERO_SUM); // car-2 repair spend
 
       const result = await service.forGarage('user-1');
 
@@ -135,8 +176,6 @@ describe('AnalyticsService', () => {
 
     it('returns zeroed-out analytics for a garage with no cars', async () => {
       prisma.car.findMany.mockResolvedValue([]);
-      prisma.expense.groupBy.mockResolvedValue([]);
-      prisma.$queryRaw.mockResolvedValue([]);
 
       const result = await service.forGarage('user-1');
 
@@ -145,6 +184,13 @@ describe('AnalyticsService', () => {
       expect(result.carComparison).toEqual([]);
       expect(result.recentExpenses).toEqual([]);
       expect(result.currentMonthSpendByCategory).toEqual([]);
+      expect(result.yearOverYear).toEqual(
+        expect.objectContaining({
+          categories: [],
+          totalThisYear: 0,
+          totalLastYear: 0,
+        }),
+      );
     });
 
     it('maps recent expenses (with car label) and this-month category totals', async () => {
@@ -153,16 +199,13 @@ describe('AnalyticsService', () => {
       ]);
       prisma.expense.aggregate
         .mockResolvedValueOnce({ _sum: { amount: '4500.00' } }) // car-1 total
-        .mockResolvedValueOnce({
-          _min: { odometerKm: null },
-          _max: { odometerKm: null },
-        }); // car-1 odometer
+        .mockResolvedValueOnce(NO_ODOMETER) // car-1 odometer
+        .mockResolvedValueOnce(ZERO_SUM); // car-1 repair spend
       // spendByCategory (all-time), then currentMonthSpendByCategory — same
       // mock object reused for both since groupBy isn't Once-chained here.
       prisma.expense.groupBy.mockResolvedValue([
         { category: 'FUEL', _sum: { amount: '4500.00' } },
       ]);
-      prisma.$queryRaw.mockResolvedValue([]);
       prisma.expense.findMany.mockResolvedValue([
         {
           id: 'exp-1',
@@ -189,6 +232,83 @@ describe('AnalyticsService', () => {
       expect(result.currentMonthSpendByCategory).toEqual([
         { category: 'FUEL', total: 4500 },
       ]);
+    });
+
+    it('reports repairSpend per car', async () => {
+      prisma.car.findMany.mockResolvedValue([CAR]);
+      prisma.expense.aggregate
+        .mockResolvedValueOnce(ZERO_SUM) // total
+        .mockResolvedValueOnce(NO_ODOMETER) // odometer
+        .mockResolvedValueOnce({ _sum: { amount: '12500.00' } }); // repair spend
+
+      const result = await service.forGarage('user-1');
+
+      expect(result.carComparison[0].repairSpend).toBe(12500);
+    });
+
+    it('narrows spendByCategory and monthlySpend to the selected period', async () => {
+      prisma.car.findMany.mockResolvedValue([CAR]);
+
+      await service.forGarage('user-1', AnalyticsPeriod.LAST_6_MONTHS);
+
+      expect(prisma.expense.groupBy).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            carId: { in: ['car-1'] },
+            expenseDate: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    describe('yearOverYear', () => {
+      it('computes percent change per category and overall', async () => {
+        prisma.car.findMany.mockResolvedValue([CAR]);
+        // groupBy call order: spendByCategory, currentMonthSpendByCategory,
+        // yearOverYear-thisYear, yearOverYear-lastYear.
+        prisma.expense.groupBy
+          .mockResolvedValueOnce([]) // spendByCategory
+          .mockResolvedValueOnce([]) // currentMonthSpendByCategory
+          .mockResolvedValueOnce([
+            { category: 'FUEL', _sum: { amount: '4600.00' } },
+          ]) // this year
+          .mockResolvedValueOnce([
+            { category: 'FUEL', _sum: { amount: '5000.00' } },
+          ]); // last year
+
+        const result = await service.forGarage('user-1');
+
+        expect(result.yearOverYear.categories).toEqual([
+          {
+            category: 'FUEL',
+            thisYear: 4600,
+            lastYear: 5000,
+            percentChange: -8,
+          },
+        ]);
+        expect(result.yearOverYear.totalThisYear).toBe(4600);
+        expect(result.yearOverYear.totalLastYear).toBe(5000);
+        expect(result.yearOverYear.totalPercentChange).toBe(-8);
+      });
+
+      it('reports null percentChange instead of dividing by zero when last year had no spend', async () => {
+        prisma.car.findMany.mockResolvedValue([CAR]);
+        prisma.expense.groupBy
+          .mockResolvedValueOnce([]) // spendByCategory
+          .mockResolvedValueOnce([]) // currentMonthSpendByCategory
+          .mockResolvedValueOnce([
+            { category: 'MOD', _sum: { amount: '2000.00' } },
+          ]) // this year
+          .mockResolvedValueOnce([]); // last year: nothing
+
+        const result = await service.forGarage('user-1');
+
+        expect(result.yearOverYear.categories).toEqual([
+          { category: 'MOD', thisYear: 2000, lastYear: 0, percentChange: null },
+        ]);
+        expect(result.yearOverYear.totalPercentChange).toBeNull();
+      });
     });
   });
 });
