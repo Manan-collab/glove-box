@@ -50,7 +50,7 @@ import {
 } from "@/hooks/use-expenses";
 import { useCarNotes, useCreateNote, useDeleteNote } from "@/hooks/use-notes";
 
-type TabKey = "overview" | "expenses" | "history";
+type TabKey = "overview" | "expenses";
 
 export default function CarDetailPage() {
   const params = useParams<{ id: string }>();
@@ -100,11 +100,6 @@ export default function CarDetailPage() {
   const filteredExpenses =
     categoryFilter === "ALL" ? expenses : expenses.filter((e) => e.category === categoryFilter);
   const monthGroups = groupByMonth(filteredExpenses);
-
-  const historyEntries = [
-    ...expenses.map((expense) => ({ type: "expense" as const, date: expense.expenseDate, expense })),
-    ...(notes ?? []).map((note) => ({ type: "note" as const, date: note.createdAt, note })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 900 }}>
@@ -156,8 +151,10 @@ export default function CarDetailPage() {
             <Button variant="outlined" onClick={() => setAddNoteOpen(true)}>
               Add Note
             </Button>
-            <Button onClick={() => setEditOpen(true)}>Edit</Button>
-            <Button color="error" onClick={() => setConfirmDeleteOpen(true)}>
+            <Button variant="outlined" onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+            <Button variant="outlined" color="error" onClick={() => setConfirmDeleteOpen(true)}>
               Delete
             </Button>
           </Stack>
@@ -167,7 +164,6 @@ export default function CarDetailPage() {
       <Tabs value={tab} onChange={(_, value: TabKey) => setTab(value)}>
         <Tab value="overview" label="Overview" />
         <Tab value="expenses" label="Expenses" />
-        <Tab value="history" label="History" />
       </Tabs>
 
       {tab === "overview" && (
@@ -259,6 +255,25 @@ export default function CarDetailPage() {
               <CategoryBreakdownBars rows={analytics.spendByCategory} />
             </Panel>
           )}
+
+          <Panel
+            title="Notes"
+            action={
+              <Button size="small" onClick={() => setAddNoteOpen(true)}>
+                + Add
+              </Button>
+            }
+          >
+            {!notes || notes.length === 0 ? (
+              <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
+                No notes yet.
+              </Typography>
+            ) : (
+              notes.map((note) => (
+                <NoteRow key={note.id} note={note} onDelete={() => deleteNote.mutate(note.id)} />
+              ))
+            )}
+          </Panel>
         </Stack>
       )}
 
@@ -341,39 +356,6 @@ export default function CarDetailPage() {
         </Stack>
       )}
 
-      {tab === "history" && (
-        <Box
-          sx={{
-            bgcolor: "background.paper",
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: "14px",
-            p: 2.5,
-          }}
-        >
-          {historyEntries.length === 0 && (
-            <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
-              Nothing logged yet.
-            </Typography>
-          )}
-          {historyEntries.map((entry) =>
-            entry.type === "expense" ? (
-              <ExpenseRow
-                key={`expense-${entry.expense.id}`}
-                expense={entry.expense}
-                onClick={() => {
-                  setEditingExpense(entry.expense);
-                  setExpenseFormOpen(true);
-                }}
-                onDelete={() => setDeletingExpenseId(entry.expense.id)}
-              />
-            ) : (
-              <NoteRow key={`note-${entry.note.id}`} note={entry.note} onDelete={() => deleteNote.mutate(entry.note.id)} />
-            ),
-          )}
-        </Box>
-      )}
-
       <CarFormDialog
         key={car.updatedAt}
         open={editOpen}
@@ -435,6 +417,9 @@ export default function CarDetailPage() {
           } else {
             createExpense.mutate(values, { onSuccess: () => setExpenseFormOpen(false) });
           }
+        }}
+        onInsuranceExpiryDateSet={(date) => {
+          updateCar.mutate({ insuranceExpiryDate: date });
         }}
       />
 

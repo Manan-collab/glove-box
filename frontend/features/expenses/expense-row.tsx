@@ -35,12 +35,15 @@ export function ExpenseRow({
       onClick={onClick}
       sx={{
         alignItems: "center",
+        mx: 1,
+        px: 1,
         py: 1.5,
+        borderRadius: "10px",
         borderBottom: "1px solid",
         borderColor: "divider",
         cursor: "pointer",
         "&:last-of-type": { borderBottom: "none" },
-        "&:hover": { bgcolor: "action.hover" },
+        "&:hover": { bgcolor: "action.hover", borderColor: "transparent" },
       }}
     >
       <Box

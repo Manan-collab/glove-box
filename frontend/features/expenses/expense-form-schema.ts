@@ -32,6 +32,11 @@ export const expenseFormSchema = z.object({
   fuelStation: z.string().optional(),
   tyreBrand: z.string().optional(),
   tyreSize: z.string().optional(),
+  // UI-only convenience field: not a real Expense column. When set on an
+  // INSURANCE expense, the dialog reports it separately so the caller can
+  // update the car's own insuranceExpiryDate instead of sending it as part
+  // of the expense payload (which the backend would reject as unknown).
+  insuranceExpiryDate: z.string().optional(),
 });
 
 export type ExpenseFormSchema = z.infer<typeof expenseFormSchema>;

@@ -61,5 +61,17 @@ export const theme = createTheme({
         root: { fontWeight: 600 },
       },
     },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: { padding: "20px 24px" },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        // Matches DialogContent's 24px horizontal padding so Cancel/Save
+        // line up with the form fields above instead of hugging the edge.
+        root: { padding: "16px 24px 24px" },
+      },
+    },
   },
 });

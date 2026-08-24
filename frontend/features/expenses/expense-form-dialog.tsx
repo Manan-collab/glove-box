@@ -29,6 +29,9 @@ interface ExpenseFormDialogProps {
   error?: string;
   title: string;
   defaultValues?: Partial<ExpenseFormSchema>;
+  // Called separately from onSubmit when an INSURANCE expense sets an
+  // expiry date — that date belongs on the car, not the expense record.
+  onInsuranceExpiryDateSet?: (date: string) => void;
 }
 
 function toISODate(value: string) {
@@ -48,6 +51,7 @@ export function ExpenseFormDialog({
   error,
   title,
   defaultValues,
+  onInsuranceExpiryDateSet,
 }: ExpenseFormDialogProps) {
   const {
     control,
@@ -67,6 +71,7 @@ export function ExpenseFormDialog({
       fuelStation: "",
       tyreBrand: "",
       tyreSize: "",
+      insuranceExpiryDate: "",
       ...defaultValues,
       ...(defaultValues?.expenseDate && {
         expenseDate: fromISODate(defaultValues.expenseDate),
@@ -77,8 +82,9 @@ export function ExpenseFormDialog({
   const category = useWatch({ control, name: "category" });
 
   const submit = handleSubmit((values) => {
+    const { insuranceExpiryDate, ...expenseValues } = values;
     onSubmit({
-      ...values,
+      ...expenseValues,
       expenseDate: toISODate(values.expenseDate),
       notes: values.notes || undefined,
       workshopName: values.workshopName || undefined,
@@ -88,6 +94,9 @@ export function ExpenseFormDialog({
       tyreBrand: values.tyreBrand || undefined,
       tyreSize: values.tyreSize || undefined,
     });
+    if (insuranceExpiryDate) {
+      onInsuranceExpiryDateSet?.(insuranceExpiryDate);
+    }
   });
 
   return (
@@ -295,6 +304,26 @@ export function ExpenseFormDialog({
                 />
               </Grid>
             </>
+          )}
+
+          {category === "INSURANCE" && (
+            <Grid size={6}>
+              <Controller
+                name="insuranceExpiryDate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ""}
+                    type="date"
+                    label="Insurance expiry"
+                    fullWidth
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    helperText="Updates the car's insurance expiry too"
+                  />
+                )}
+              />
+            </Grid>
           )}
 
           <Grid size={12}>

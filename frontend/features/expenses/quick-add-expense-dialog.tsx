@@ -11,7 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { useCars } from "@/hooks/use-cars";
+import { useCars, useUpdateCar } from "@/hooks/use-cars";
 import { useCreateExpense } from "@/hooks/use-expenses";
 import { ExpenseFormDialog } from "./expense-form-dialog";
 
@@ -24,6 +24,7 @@ export function QuickAddExpenseDialog({ open, onClose }: QuickAddExpenseDialogPr
   const { data: cars } = useCars();
   const [carId, setCarId] = useState("");
   const createExpense = useCreateExpense(carId);
+  const updateCar = useUpdateCar(carId);
 
   const handleClose = () => {
     onClose();
@@ -42,6 +43,9 @@ export function QuickAddExpenseDialog({ open, onClose }: QuickAddExpenseDialogPr
         error={createExpense.error?.message}
         onSubmit={(values) => {
           createExpense.mutate(values, { onSuccess: handleClose });
+        }}
+        onInsuranceExpiryDateSet={(date) => {
+          updateCar.mutate({ insuranceExpiryDate: date });
         }}
       />
     );
