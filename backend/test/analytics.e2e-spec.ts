@@ -17,6 +17,8 @@ describe('Analytics (e2e)', () => {
   let userBToken: string;
   let carAId: string;
   let carBId: string;
+  let jwt: JwtService;
+  let jwtSecret: string;
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
@@ -40,9 +42,10 @@ describe('Analytics (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
-    const jwt = app.get(JwtService);
+    jwt = app.get(JwtService);
     const config = app.get(ConfigService);
-    const secret = config.getOrThrow<string>('jwt.secret');
+    jwtSecret = config.getOrThrow<string>('jwt.secret');
+    const secret = jwtSecret;
 
     const userA = await prisma.user.create({
       data: {
@@ -206,5 +209,77 @@ describe('Analytics (e2e)', () => {
     expect(res.body.totalCars).toBe(1);
     expect(res.body.totalSpend).toBe(9999);
     expect(res.body.carComparison[0].carId).toBe(carBId);
+  });
+
+  it('garage analytics surface recent expenses and this-month category totals', async () => {
+    const userC = await prisma.user.create({
+      data: {
+        googleId: `an-e2e-c-${Date.now()}`,
+        email: `an-e2e-c-${Date.now()}@example.com`,
+        username: `ane2ec${Date.now()}`,
+      },
+    });
+    createdUserIds.push(userC.id);
+    const userCToken = jwt.sign(
+      { sub: userC.id },
+      { secret: jwtSecret, expiresIn: '15m' },
+    );
+
+    const carC = await prisma.car.create({
+      data: {
+        make: 'Hyundai',
+        model: 'Creta',
+        year: 2023,
+        variant: 'SX(O)',
+        engine: '1.5L Diesel',
+        fuelType: 'Diesel',
+        transmission: 'Automatic',
+        bodyType: 'SUV',
+        odometerKm: 12800,
+        userId: userC.id,
+      },
+    });
+
+    // An old expense, well outside "this month" under any real-world clock,
+    // and dated so it is never the most recent of the two.
+    await prisma.expense.create({
+      data: {
+        carId: carC.id,
+        category: 'SERVICE',
+        amount: '1500.00',
+        expenseDate: new Date('2020-01-15'),
+      },
+    });
+    // Dated "today" rather than hardcoded, so this is always both the most
+    // recent expense and always inside "this month", regardless of when the
+    // suite runs.
+    await prisma.expense.create({
+      data: {
+        carId: carC.id,
+        category: 'FUEL',
+        amount: '900.00',
+        expenseDate: new Date(),
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/analytics/garage')
+      .set({ Cookie: [`access_token=${userCToken}`] })
+      .expect(200);
+
+    expect(res.body.recentExpenses[0]).toEqual(
+      expect.objectContaining({
+        carId: carC.id,
+        carLabel: 'Hyundai Creta',
+        category: 'FUEL',
+        amount: 900,
+      }),
+    );
+    expect(res.body.currentMonthSpendByCategory).toEqual(
+      expect.arrayContaining([{ category: 'FUEL', total: 900 }]),
+    );
+    expect(res.body.currentMonthSpendByCategory).not.toEqual(
+      expect.arrayContaining([{ category: 'SERVICE', total: 1500 }]),
+    );
   });
 });

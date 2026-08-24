@@ -2,12 +2,10 @@
 
 import { Alert, Box, CircularProgress, Grid, Stack, Typography } from "@mui/material";
 import { BarChart } from "@mui/x-charts/BarChart";
+import { Panel, StatCard } from "@/features/analytics/analytics-ui";
 import { categoryMeta } from "@/features/expenses/expense-categories";
 import { useGarageAnalytics } from "@/hooks/use-analytics";
-
-function formatCurrency(value: number) {
-  return `₹${Math.round(value).toLocaleString()}`;
-}
+import { formatCurrency } from "@/lib/format-currency";
 
 export default function AnalyticsPage() {
   const { data, isLoading, isError } = useGarageAnalytics();
@@ -170,49 +168,5 @@ export default function AnalyticsPage() {
         </Box>
       </Panel>
     </Stack>
-  );
-}
-
-function StatCard({
-  value,
-  label,
-  accent,
-}: {
-  value: string;
-  label: string;
-  accent?: boolean;
-}) {
-  return (
-    <Box
-      sx={{
-        bgcolor: "background.paper",
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: "14px",
-        p: "20px 22px",
-      }}
-    >
-      <Typography sx={{ fontSize: 26, fontWeight: 800, color: accent ? "primary.main" : "text.primary" }}>
-        {value}
-      </Typography>
-      <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.5 }}>{label}</Typography>
-    </Box>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Box
-      sx={{
-        bgcolor: "background.paper",
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: "14px",
-        p: "20px 22px",
-      }}
-    >
-      <Typography sx={{ fontSize: 15, fontWeight: 700, mb: 2 }}>{title}</Typography>
-      {children}
-    </Box>
   );
 }

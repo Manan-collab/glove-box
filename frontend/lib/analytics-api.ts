@@ -29,6 +29,15 @@ export interface CarAnalytics {
   monthlySpend: MonthlySpend[];
 }
 
+export interface RecentExpense {
+  id: string;
+  carId: string;
+  carLabel: string;
+  category: ExpenseCategory;
+  amount: number;
+  expenseDate: string;
+}
+
 export interface GarageAnalytics {
   totalSpend: number;
   totalCars: number;
@@ -37,6 +46,8 @@ export interface GarageAnalytics {
   spendByCategory: CategoryBreakdown[];
   monthlySpend: MonthlySpend[];
   carComparison: CarComparison[];
+  recentExpenses: RecentExpense[];
+  currentMonthSpendByCategory: CategoryBreakdown[];
 }
 
 export function getGarageAnalytics() {

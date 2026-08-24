@@ -3,6 +3,7 @@
 import {
   Avatar,
   Box,
+  Button,
   CircularProgress,
   Divider,
   ListItemIcon,
@@ -14,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { QuickAddExpenseDialog } from "@/features/expenses/quick-add-expense-dialog";
 import { ThemeToggle } from "@/features/shell/theme-toggle";
 import { useLogout, useMe } from "@/hooks/use-auth";
 
@@ -29,6 +31,7 @@ export default function DashboardLayout({
   const { data, isLoading, isError } = useMe();
   const logout = useLogout();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   useEffect(() => {
     if (isError) {
@@ -75,7 +78,7 @@ export default function DashboardLayout({
         <Typography sx={{ fontWeight: 800, fontSize: 19, px: 1.25, pb: 3 }}>
           GLOVE<Box component="span" sx={{ color: "primary.main" }}>BOX</Box>
         </Typography>
-        <Stack spacing={0.5}>
+        <Stack spacing={0.5} sx={{ flex: 1 }}>
           <NavItem href="/dashboard" icon="🏠" label="Garage" active={pathname === "/dashboard"} />
           <NavItem
             href="/dashboard/analytics"
@@ -90,6 +93,11 @@ export default function DashboardLayout({
             active={pathname.startsWith("/dashboard/friends")}
           />
         </Stack>
+
+        <Button variant="contained" fullWidth onClick={() => setQuickAddOpen(true)}>
+          + Add Expense
+        </Button>
+        <QuickAddExpenseDialog open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
       </Box>
 
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>

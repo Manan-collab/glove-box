@@ -31,6 +31,15 @@ export interface CarAnalytics {
   monthlySpend: MonthlySpend[];
 }
 
+export interface RecentExpense {
+  id: string;
+  carId: string;
+  carLabel: string;
+  category: ExpenseCategory;
+  amount: number;
+  expenseDate: string;
+}
+
 export interface GarageAnalytics {
   totalSpend: number;
   totalCars: number;
@@ -39,7 +48,11 @@ export interface GarageAnalytics {
   spendByCategory: CategoryBreakdown[];
   monthlySpend: MonthlySpend[];
   carComparison: CarComparison[];
+  recentExpenses: RecentExpense[];
+  currentMonthSpendByCategory: CategoryBreakdown[];
 }
+
+const RECENT_EXPENSES_LIMIT = 8;
 
 @Injectable()
 export class AnalyticsService {
@@ -92,6 +105,9 @@ export class AnalyticsService {
     );
     const spendByCategory = await this.spendByCategory(carIds);
     const monthlySpend = await this.monthlySpend(carIds);
+    const recentExpenses = await this.recentExpenses(carIds);
+    const currentMonthSpendByCategory =
+      await this.currentMonthSpendByCategory(carIds);
 
     return {
       totalSpend,
@@ -101,6 +117,8 @@ export class AnalyticsService {
       spendByCategory,
       monthlySpend,
       carComparison,
+      recentExpenses,
+      currentMonthSpendByCategory,
     };
   }
 
@@ -160,6 +178,43 @@ export class AnalyticsService {
     return rows.map((row) => ({
       month: row.month.toISOString().slice(0, 7),
       total: row.total,
+    }));
+  }
+
+  private async recentExpenses(carIds: string[]): Promise<RecentExpense[]> {
+    if (carIds.length === 0) return [];
+    const rows = await this.prisma.expense.findMany({
+      where: { carId: { in: carIds } },
+      orderBy: { expenseDate: 'desc' },
+      take: RECENT_EXPENSES_LIMIT,
+      include: { car: { select: { make: true, model: true } } },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      carId: row.carId,
+      carLabel: `${row.car.make} ${row.car.model}`,
+      category: row.category,
+      amount: Number(row.amount),
+      expenseDate: row.expenseDate.toISOString(),
+    }));
+  }
+
+  private async currentMonthSpendByCategory(
+    carIds: string[],
+  ): Promise<CategoryBreakdown[]> {
+    if (carIds.length === 0) return [];
+    const now = new Date();
+    const startOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const rows = await this.prisma.expense.groupBy({
+      by: ['category'],
+      where: { carId: { in: carIds }, expenseDate: { gte: startOfMonth } },
+      _sum: { amount: true },
+    });
+    return rows.map((row) => ({
+      category: row.category,
+      total: Number(row._sum.amount ?? 0),
     }));
   }
 }

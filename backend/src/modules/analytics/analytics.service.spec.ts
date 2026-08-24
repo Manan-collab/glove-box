@@ -4,7 +4,7 @@ describe('AnalyticsService', () => {
   let service: AnalyticsService;
   let prisma: {
     car: { findMany: jest.Mock };
-    expense: { aggregate: jest.Mock; groupBy: jest.Mock };
+    expense: { aggregate: jest.Mock; groupBy: jest.Mock; findMany: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let carsService: { findOneForUser: jest.Mock };
@@ -14,9 +14,14 @@ describe('AnalyticsService', () => {
   beforeEach(() => {
     prisma = {
       car: { findMany: jest.fn() },
-      expense: { aggregate: jest.fn(), groupBy: jest.fn() },
+      expense: {
+        aggregate: jest.fn(),
+        groupBy: jest.fn(),
+        findMany: jest.fn(),
+      },
       $queryRaw: jest.fn(),
     };
+    prisma.expense.findMany.mockResolvedValue([]);
     carsService = { findOneForUser: jest.fn() };
     service = new AnalyticsService(prisma as any, carsService as any);
   });
@@ -138,6 +143,52 @@ describe('AnalyticsService', () => {
       expect(result.totalCars).toBe(0);
       expect(result.totalSpend).toBe(0);
       expect(result.carComparison).toEqual([]);
+      expect(result.recentExpenses).toEqual([]);
+      expect(result.currentMonthSpendByCategory).toEqual([]);
+    });
+
+    it('maps recent expenses (with car label) and this-month category totals', async () => {
+      prisma.car.findMany.mockResolvedValue([
+        { id: 'car-1', make: 'Honda', model: 'Civic', year: 2020 },
+      ]);
+      prisma.expense.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: '4500.00' } }) // car-1 total
+        .mockResolvedValueOnce({
+          _min: { odometerKm: null },
+          _max: { odometerKm: null },
+        }); // car-1 odometer
+      // spendByCategory (all-time), then currentMonthSpendByCategory — same
+      // mock object reused for both since groupBy isn't Once-chained here.
+      prisma.expense.groupBy.mockResolvedValue([
+        { category: 'FUEL', _sum: { amount: '4500.00' } },
+      ]);
+      prisma.$queryRaw.mockResolvedValue([]);
+      prisma.expense.findMany.mockResolvedValue([
+        {
+          id: 'exp-1',
+          carId: 'car-1',
+          category: 'FUEL',
+          amount: '4500.00',
+          expenseDate: new Date('2026-08-10T00:00:00Z'),
+          car: { make: 'Honda', model: 'Civic' },
+        },
+      ]);
+
+      const result = await service.forGarage('user-1');
+
+      expect(result.recentExpenses).toEqual([
+        {
+          id: 'exp-1',
+          carId: 'car-1',
+          carLabel: 'Honda Civic',
+          category: 'FUEL',
+          amount: 4500,
+          expenseDate: '2026-08-10T00:00:00.000Z',
+        },
+      ]);
+      expect(result.currentMonthSpendByCategory).toEqual([
+        { category: 'FUEL', total: 4500 },
+      ]);
     });
   });
 });
