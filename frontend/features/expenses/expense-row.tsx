@@ -18,7 +18,10 @@ function formatAmount(amount: string, currency: string) {
 }
 
 // A short, category-specific second line so a row says more than just its
-// category — falls back to odometer, then notes, then nothing.
+// category — falls back to notes, then odometer, then nothing. Notes go
+// first because they're what the user actually typed about the expense
+// (e.g. "RTO transfer cost" on an OTHER expense); an odometer reading on
+// its own doesn't say what the money was for.
 export function expenseSubtitle(expense: Expense): string | null {
   switch (expense.category) {
     case "FUEL": {
@@ -45,8 +48,8 @@ export function expenseSubtitle(expense: Expense): string | null {
       break;
     }
   }
-  if (expense.odometerKm != null) return `${expense.odometerKm.toLocaleString()} km`;
   if (expense.notes) return expense.notes;
+  if (expense.odometerKm != null) return `${expense.odometerKm.toLocaleString()} km`;
   return null;
 }
 

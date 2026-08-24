@@ -1,8 +1,9 @@
 "use client";
 
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import type { Expense } from "@/lib/expenses-api";
-import { categoryMeta } from "./expense-categories";
+import { categoryAccent, categoryMeta } from "./expense-categories";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -19,9 +20,17 @@ function formatAmount(amount: string, currency: string) {
   return `${symbol}${value.toLocaleString()}`;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, isLast }: { label: string; value: string; isLast: boolean }) {
   return (
-    <Stack direction="row" sx={{ justifyContent: "space-between", py: 0.75 }}>
+    <Stack
+      direction="row"
+      sx={{
+        justifyContent: "space-between",
+        py: 1.25,
+        borderBottom: isLast ? "none" : "1px solid",
+        borderColor: "divider",
+      }}
+    >
       <Typography sx={{ fontSize: 13, color: "text.secondary" }}>{label}</Typography>
       <Typography sx={{ fontSize: 13, fontWeight: 600, textAlign: "right" }}>{value}</Typography>
     </Stack>
@@ -37,6 +46,7 @@ export function ExpenseDetailDialog({
 }) {
   if (!expense) return null;
   const meta = categoryMeta(expense.category);
+  const accent = categoryAccent(expense.category);
 
   const rows: { label: string; value: string }[] = [];
   if (expense.odometerKm != null) rows.push({ label: "Odometer", value: `${expense.odometerKm.toLocaleString()} km` });
@@ -51,45 +61,84 @@ export function ExpenseDetailDialog({
 
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+      <DialogContent sx={{ pt: 3 }}>
+        <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", mb: 2.5 }}>
           <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: "9px",
-              bgcolor: "background.default",
+            sx={(theme) => ({
+              width: 48,
+              height: 48,
+              borderRadius: "13px",
+              bgcolor: accent === "default" ? theme.palette.action.hover : alpha(theme.palette[accent].main, 0.16),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 18,
+              fontSize: 21,
               flexShrink: 0,
-            }}
+            })}
           >
             {meta.icon}
           </Box>
-          {meta.label}
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: accent === "default" ? "text.secondary" : `${accent}.main`,
+              }}
+            >
+              {meta.label}
+            </Typography>
+            <Typography sx={{ fontSize: 26, fontWeight: 800, lineHeight: 1.15 }}>
+              {formatAmount(expense.amount, expense.currency)}
+            </Typography>
+          </Box>
         </Stack>
-      </DialogTitle>
-      <DialogContent>
-        <Typography sx={{ fontSize: 28, fontWeight: 800, mt: 0.5 }}>
-          {formatAmount(expense.amount, expense.currency)}
-        </Typography>
-        <Typography sx={{ fontSize: 13, color: "text.secondary", mb: 2 }}>
+
+        <Typography sx={{ fontSize: 13, color: "text.secondary", mb: rows.length || expense.notes ? 2.5 : 0 }}>
           {formatDate(expense.expenseDate)}
         </Typography>
 
         {rows.length > 0 && (
-          <Stack sx={{ borderTop: "1px solid", borderColor: "divider" }}>
-            {rows.map((row) => (
-              <Row key={row.label} label={row.label} value={row.value} />
+          <Box
+            sx={{
+              bgcolor: "background.default",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "12px",
+              px: 2,
+              mb: expense.notes ? 2 : 0,
+            }}
+          >
+            {rows.map((row, index) => (
+              <Row key={row.label} label={row.label} value={row.value} isLast={index === rows.length - 1} />
             ))}
-          </Stack>
+          </Box>
         )}
 
         {expense.notes && (
-          <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
-            <Typography sx={{ fontSize: 12, color: "text.secondary", mb: 0.5 }}>Notes</Typography>
+          <Box
+            sx={{
+              bgcolor: "background.default",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "12px",
+              p: 2,
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+                mb: 0.5,
+              }}
+            >
+              Notes
+            </Typography>
             <Typography sx={{ fontSize: 13.5 }}>{expense.notes}</Typography>
           </Box>
         )}

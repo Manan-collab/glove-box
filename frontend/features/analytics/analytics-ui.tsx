@@ -17,13 +17,15 @@ export function StatCard({
 }) {
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         bgcolor: "background.paper",
         border: "1px solid",
         borderColor: "divider",
         borderRadius: "14px",
         p: "20px 22px",
-      }}
+        boxShadow: "none",
+        ...theme.applyStyles("light", { boxShadow: "0 1px 2px rgba(30, 41, 82, 0.06)" }),
+      })}
     >
       {loading ? (
         <Skeleton variant="text" width={100} height={38} />
@@ -48,14 +50,16 @@ export function Panel({
 }) {
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         bgcolor: "background.paper",
         border: "1px solid",
         borderColor: "divider",
         borderRadius: "14px",
         p: "20px 22px",
         height: "100%",
-      }}
+        boxShadow: "none",
+        ...theme.applyStyles("light", { boxShadow: "0 1px 2px rgba(30, 41, 82, 0.06)" }),
+      })}
     >
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography sx={{ fontSize: 15, fontWeight: 700 }}>{title}</Typography>

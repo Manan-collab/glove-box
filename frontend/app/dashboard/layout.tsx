@@ -61,10 +61,11 @@ export default function DashboardLayout({
     <Box sx={{ display: "flex", minHeight: "100dvh" }}>
       <Box
         component="aside"
-        sx={{
+        sx={(theme) => ({
           width: SIDEBAR_WIDTH,
           flexShrink: 0,
           bgcolor: "background.paper",
+          ...theme.applyStyles("light", { backgroundColor: theme.palette.background.default }),
           borderRight: "1px solid",
           borderColor: "divider",
           display: { xs: "none", md: "flex" },
@@ -74,7 +75,7 @@ export default function DashboardLayout({
           top: 0,
           left: 0,
           height: "100dvh",
-        }}
+        })}
       >
         <Typography sx={{ fontWeight: 800, fontSize: 19, px: 1.25, pb: 3 }}>
           GLOVE<Box component="span" sx={{ color: "primary.main" }}>BOX</Box>
@@ -112,11 +113,12 @@ export default function DashboardLayout({
       >
         <Box
           component="header"
-          sx={{
+          sx={(theme) => ({
             position: "sticky",
             top: 0,
             zIndex: 30,
             bgcolor: "background.paper",
+            ...theme.applyStyles("light", { backgroundColor: theme.palette.background.default }),
             borderBottom: "1px solid",
             borderColor: "divider",
             display: "flex",
@@ -124,7 +126,7 @@ export default function DashboardLayout({
             justifyContent: "space-between",
             px: { xs: 2, md: 4 },
             height: 60,
-          }}
+          })}
         >
           <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: "text.secondary" }}>
             {user.displayName ?? user.username}&apos;s Garage

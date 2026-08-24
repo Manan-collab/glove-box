@@ -30,3 +30,23 @@ export function categoryMeta(category: string) {
     }
   );
 }
+
+export type CategoryAccent = "primary" | "success" | "warning" | "error" | "default";
+
+export function categoryAccent(category: string): CategoryAccent {
+  switch (category) {
+    case "FUEL":
+      return "warning";
+    case "SERVICE":
+    case "MOD":
+    case "INSURANCE":
+      return "primary";
+    case "REPAIR":
+      return "error";
+    case "BATTERY":
+    case "PURCHASE":
+      return "success";
+    default:
+      return "default";
+  }
+}

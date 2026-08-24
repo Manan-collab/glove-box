@@ -11,13 +11,13 @@ export const theme = createTheme({
   colorSchemes: {
     light: {
       palette: {
-        background: { default: "#F2F3F7", paper: "#FFFFFF" },
-        text: { primary: "#13141B", secondary: "#5B5E6B", disabled: "#9497A3" },
-        divider: "#E3E5EC",
+        background: { default: "#EBEEF8", paper: "#FFFFFF" },
+        text: { primary: "#181A2A", secondary: "#5B5E6B", disabled: "#9497A3" },
+        divider: "#DBDFEC",
         primary: { main: "#2F6BFF", dark: "#1E52D6", contrastText: "#FFFFFF" },
-        success: { main: "#1FA971" },
-        warning: { main: "#D69A2D" },
-        error: { main: "#E14F55" },
+        success: { main: "#1B9A66" },
+        warning: { main: "#C98A1F" },
+        error: { main: "#D5454C" },
       },
     },
     dark: {
@@ -38,6 +38,7 @@ export const theme = createTheme({
         root: ({ theme }) => ({
           border: `1px solid ${theme.palette.divider}`,
           boxShadow: "none",
+          ...theme.applyStyles("light", { boxShadow: "0 1px 2px rgba(30, 41, 82, 0.06)" }),
         }),
       },
     },

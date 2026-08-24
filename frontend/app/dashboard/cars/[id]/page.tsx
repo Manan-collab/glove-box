@@ -139,6 +139,39 @@ export default function CarDetailPage() {
                 color={health.score >= 80 ? "success" : health.score >= 50 ? "warning" : "error"}
               />
             )}
+            <Chip
+              size="small"
+              label={
+                `${acquisition.label} ` +
+                new Date(acquisition.date).toLocaleDateString(undefined, { month: "short", year: "numeric" }) +
+                (acquisition.purchasePrice ? ` · ${formatCurrency(acquisition.purchasePrice)}` : "")
+              }
+            />
+            <Chip
+              size="small"
+              label={
+                lastServiceKmAgo != null ? `${lastServiceKmAgo.toLocaleString()} km since service` : "Not serviced yet"
+              }
+            />
+            <Chip
+              size="small"
+              label={
+                insuranceDaysLeft == null
+                  ? "Insurance not set"
+                  : insuranceDaysLeft < 0
+                    ? "Insurance expired"
+                    : `Insurance: ${insuranceDaysLeft}d left`
+              }
+              color={
+                insuranceDaysLeft == null
+                  ? undefined
+                  : insuranceDaysLeft < 30
+                    ? "error"
+                    : insuranceDaysLeft < 90
+                      ? "warning"
+                      : "success"
+              }
+            />
           </Stack>
           <Stack direction="row" spacing={1.25} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
             <Button
@@ -195,72 +228,30 @@ export default function CarDetailPage() {
             </Grid>
           </Grid>
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Panel title="Recent Expenses">
-                {expensesLoading ? (
-                  <PanelLoading />
-                ) : expenses.length === 0 ? (
-                  <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
-                    No expenses logged yet.
-                  </Typography>
-                ) : (
-                  expenses
-                    .slice(0, 5)
-                    .map((expense) => (
-                      <ExpenseRow
-                        key={expense.id}
-                        expense={expense}
-                        onView={() => setViewingExpense(expense)}
-                        onEdit={() => {
-                          setEditingExpense(expense);
-                          setExpenseFormOpen(true);
-                        }}
-                        onDelete={() => setDeletingExpenseId(expense.id)}
-                      />
-                    ))
-                )}
-              </Panel>
-            </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Panel title="Quick Facts">
-                <Stack spacing={1.5}>
-                  <FactRow
-                    label={acquisition.label}
-                    value={
-                      new Date(acquisition.date).toLocaleDateString(undefined, {
-                        month: "short",
-                        year: "numeric",
-                      }) + (acquisition.purchasePrice ? ` · ${formatCurrency(acquisition.purchasePrice)}` : "")
-                    }
+          <Panel title="Recent Expenses">
+            {expensesLoading ? (
+              <PanelLoading />
+            ) : expenses.length === 0 ? (
+              <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
+                No expenses logged yet.
+              </Typography>
+            ) : (
+              expenses
+                .slice(0, 5)
+                .map((expense) => (
+                  <ExpenseRow
+                    key={expense.id}
+                    expense={expense}
+                    onView={() => setViewingExpense(expense)}
+                    onEdit={() => {
+                      setEditingExpense(expense);
+                      setExpenseFormOpen(true);
+                    }}
+                    onDelete={() => setDeletingExpenseId(expense.id)}
                   />
-                  <FactRow
-                    label="Last service"
-                    value={lastServiceKmAgo != null ? `${lastServiceKmAgo.toLocaleString()} km ago` : "Not logged yet"}
-                  />
-                  <FactRow
-                    label="Insurance"
-                    value={
-                      insuranceDaysLeft == null
-                        ? "Not set"
-                        : insuranceDaysLeft < 0
-                          ? "Expired"
-                          : `${insuranceDaysLeft} days left`
-                    }
-                    chipColor={
-                      insuranceDaysLeft == null
-                        ? undefined
-                        : insuranceDaysLeft < 30
-                          ? "error"
-                          : insuranceDaysLeft < 90
-                            ? "warning"
-                            : "success"
-                    }
-                  />
-                </Stack>
-              </Panel>
-            </Grid>
-          </Grid>
+                ))
+            )}
+          </Panel>
 
           {analyticsLoading && (
             <Panel title="Spending Breakdown">
@@ -528,27 +519,6 @@ function groupByMonth(expenses: Expense[]): [string, Expense[]][] {
     }
   }
   return Array.from(groups.entries());
-}
-
-function FactRow({
-  label,
-  value,
-  chipColor,
-}: {
-  label: string;
-  value: string;
-  chipColor?: "success" | "warning" | "error";
-}) {
-  return (
-    <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-      <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>{label}</Typography>
-      {chipColor ? (
-        <Chip size="small" label={value} color={chipColor} />
-      ) : (
-        <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{value}</Typography>
-      )}
-    </Stack>
-  );
 }
 
 function NoteRow({
