@@ -5,7 +5,7 @@ import { FriendsService } from './friends.service';
 describe('FriendsService', () => {
   let service: FriendsService;
   let prisma: {
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; findMany: jest.Mock };
     friendRequest: {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
@@ -23,7 +23,7 @@ describe('FriendsService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), findMany: jest.fn() },
       friendRequest: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
@@ -104,6 +104,77 @@ describe('FriendsService', () => {
       expect(prisma.friendRequest.create).toHaveBeenCalledWith({
         data: { fromUserId: 'user-1', toUserId: 'user-2' },
       });
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('returns an empty array without querying when the trimmed query is empty', async () => {
+      const result = await service.searchUsers('user-1', '   ');
+
+      expect(result).toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('excludes the caller and matches username or display name case-insensitively', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'user-2',
+          username: 'manan',
+          displayName: 'Manan Mer',
+          avatarUrl: null,
+        },
+      ]);
+      prisma.friendship.findMany.mockResolvedValue([]);
+      prisma.friendRequest.findMany.mockResolvedValue([]);
+
+      await service.searchUsers('user-1', 'man');
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: { not: 'user-1' },
+            OR: [
+              { username: { contains: 'man', mode: 'insensitive' } },
+              { displayName: { contains: 'man', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('annotates each result with FRIENDS, REQUEST_SENT, REQUEST_RECEIVED, or NONE', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'friend-1', username: 'a' },
+        { id: 'sent-to-1', username: 'b' },
+        { id: 'received-from-1', username: 'c' },
+        { id: 'stranger-1', username: 'd' },
+      ]);
+      prisma.friendship.findMany.mockResolvedValue([
+        { userAId: 'user-1', userBId: 'friend-1' },
+      ]);
+      prisma.friendRequest.findMany.mockImplementation(({ where }: any) => {
+        if (where.fromUserId) return [{ toUserId: 'sent-to-1' }];
+        return [{ fromUserId: 'received-from-1' }];
+      });
+
+      const result = await service.searchUsers('user-1', 'x');
+
+      expect(result).toEqual([
+        { id: 'friend-1', username: 'a', status: 'FRIENDS' },
+        { id: 'sent-to-1', username: 'b', status: 'REQUEST_SENT' },
+        { id: 'received-from-1', username: 'c', status: 'REQUEST_RECEIVED' },
+        { id: 'stranger-1', username: 'd', status: 'NONE' },
+      ]);
+    });
+
+    it('skips the relationship lookups entirely when there are no matches', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const result = await service.searchUsers('user-1', 'nobody');
+
+      expect(result).toEqual([]);
+      expect(prisma.friendship.findMany).not.toHaveBeenCalled();
+      expect(prisma.friendRequest.findMany).not.toHaveBeenCalled();
     });
   });
 

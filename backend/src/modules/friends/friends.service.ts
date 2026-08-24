@@ -50,6 +50,56 @@ export class FriendsService {
     });
   }
 
+  // Case-insensitive substring match on username or display name, annotated
+  // with the caller's relationship to each result so the UI can grey out
+  // "Send" for someone already a friend or already invited instead of
+  // letting the request round-trip into a predictable 409.
+  async searchUsers(userId: string, query: string) {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        OR: [
+          { username: { contains: trimmed, mode: 'insensitive' } },
+          { displayName: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      },
+      select: PUBLIC_PROFILE_SELECT,
+      orderBy: { username: 'asc' },
+      take: 8,
+    });
+    if (users.length === 0) return [];
+
+    // Sequential, not Promise.all — see Section 0's Prisma driver-adapter gotcha.
+    const friendships = await this.prisma.friendship.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+    });
+    const outgoing = await this.prisma.friendRequest.findMany({
+      where: { fromUserId: userId },
+    });
+    const incoming = await this.prisma.friendRequest.findMany({
+      where: { toUserId: userId },
+    });
+    const friendIds = new Set(
+      friendships.map((f) => (f.userAId === userId ? f.userBId : f.userAId)),
+    );
+    const outgoingIds = new Set(outgoing.map((r) => r.toUserId));
+    const incomingIds = new Set(incoming.map((r) => r.fromUserId));
+
+    return users.map((u) => ({
+      ...u,
+      status: friendIds.has(u.id)
+        ? ('FRIENDS' as const)
+        : outgoingIds.has(u.id)
+          ? ('REQUEST_SENT' as const)
+          : incomingIds.has(u.id)
+            ? ('REQUEST_RECEIVED' as const)
+            : ('NONE' as const),
+    }));
+  }
+
   async listRequests(userId: string) {
     const incoming = await this.prisma.friendRequest.findMany({
       where: { toUserId: userId },

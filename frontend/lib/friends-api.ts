@@ -7,6 +7,12 @@ export interface PublicProfile {
   avatarUrl: string | null;
 }
 
+export type FriendStatus = "FRIENDS" | "REQUEST_SENT" | "REQUEST_RECEIVED" | "NONE";
+
+export interface SearchedUser extends PublicProfile {
+  status: FriendStatus;
+}
+
 export interface FriendRequestItem {
   id: string;
   createdAt: string;
@@ -43,6 +49,10 @@ export function listFriends() {
 
 export function listFriendRequests() {
   return apiClient.get<FriendRequests>("/friends/requests");
+}
+
+export function searchUsers(query: string) {
+  return apiClient.get<SearchedUser[]>(`/friends/search?q=${encodeURIComponent(query)}`);
 }
 
 export function sendFriendRequest(username: string) {

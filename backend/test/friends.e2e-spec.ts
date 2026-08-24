@@ -16,6 +16,7 @@ describe('Friends (e2e)', () => {
   let userA: { id: string; username: string };
   let userB: { id: string; username: string };
   let userC: { id: string; username: string };
+  let userD: { id: string; username: string; displayName: string | null };
   let tokenA: string;
   let tokenB: string;
   let tokenC: string;
@@ -68,7 +69,15 @@ describe('Friends (e2e)', () => {
         username: `fre2ec${stamp}`,
       },
     });
-    createdUserIds.push(userA.id, userB.id, userC.id);
+    userD = await prisma.user.create({
+      data: {
+        googleId: `fr-e2e-d-${stamp}`,
+        email: `fr-e2e-d-${stamp}@example.com`,
+        username: `fre2ed${stamp}`,
+        displayName: `Searchable Person ${stamp}`,
+      },
+    });
+    createdUserIds.push(userA.id, userB.id, userC.id, userD.id);
 
     tokenA = jwt.sign({ sub: userA.id }, { secret, expiresIn: '15m' });
     tokenB = jwt.sign({ sub: userB.id }, { secret, expiresIn: '15m' });
@@ -149,12 +158,91 @@ describe('Friends (e2e)', () => {
       .expect(409);
   });
 
+  describe('GET /friends/search', () => {
+    it('rejects with no auth cookie', () => {
+      return request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: 'fre2e' })
+        .expect(401);
+    });
+
+    it('400s when q is missing', () => {
+      return request(app.getHttpServer())
+        .get('/friends/search')
+        .set(asA())
+        .expect(400);
+    });
+
+    it('matches by a username substring, case-insensitively, and excludes the caller', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: userB.username.slice(0, -2).toUpperCase() })
+        .set(asA())
+        .expect(200);
+
+      const usernames = res.body.map((u: { username: string }) => u.username);
+      expect(usernames).toContain(userB.username);
+      expect(usernames).not.toContain(userA.username);
+    });
+
+    it('matches by a display name substring', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: 'Searchable Person' })
+        .set(asA())
+        .expect(200);
+
+      expect(res.body.map((u: { username: string }) => u.username)).toContain(
+        userD.username,
+      );
+      expect(res.body[0]).toEqual(
+        expect.objectContaining({ username: userD.username, status: 'NONE' }),
+      );
+    });
+
+    it('returns an empty array for a query that matches nobody', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: 'no-such-substring-anywhere' })
+        .set(asA())
+        .expect(200);
+
+      expect(res.body).toEqual([]);
+    });
+  });
+
   describe('request -> reject -> re-request -> accept -> view garage -> unfriend', () => {
     it('User A sends a request to User B', async () => {
       await request(app.getHttpServer())
         .post(`/friends/requests/${userB.username}`)
         .set(asA())
         .expect(201);
+    });
+
+    it('search reflects the pending request as REQUEST_SENT for A and REQUEST_RECEIVED for B', async () => {
+      const fromA = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: userB.username })
+        .set(asA())
+        .expect(200);
+      expect(fromA.body[0]).toEqual(
+        expect.objectContaining({
+          username: userB.username,
+          status: 'REQUEST_SENT',
+        }),
+      );
+
+      const fromB = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: userA.username })
+        .set(asB())
+        .expect(200);
+      expect(fromB.body[0]).toEqual(
+        expect.objectContaining({
+          username: userA.username,
+          status: 'REQUEST_RECEIVED',
+        }),
+      );
     });
 
     it('sending the identical request again is a conflict', () => {
@@ -273,6 +361,20 @@ describe('Friends (e2e)', () => {
         .set(asB())
         .expect(200);
       expect(requestsOfB.body.incoming).toHaveLength(0);
+    });
+
+    it('search reflects the new friendship as FRIENDS for both sides', async () => {
+      const fromA = await request(app.getHttpServer())
+        .get('/friends/search')
+        .query({ q: userB.username })
+        .set(asA())
+        .expect(200);
+      expect(fromA.body[0]).toEqual(
+        expect.objectContaining({
+          username: userB.username,
+          status: 'FRIENDS',
+        }),
+      );
     });
 
     it("User B can now view User A's public garage, without VIN or odometer", async () => {

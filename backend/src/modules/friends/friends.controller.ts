@@ -6,12 +6,14 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { SafeUser } from '../auth/utils/to-safe-user';
+import { SearchUsersQueryDto } from './dto/search-users-query.dto';
 import { FriendsService } from './friends.service';
 
 @ApiTags('friends')
@@ -29,6 +31,14 @@ export class FriendsController {
   @Get('requests')
   listRequests(@CurrentUser() user: SafeUser) {
     return this.friendsService.listRequests(user.id);
+  }
+
+  @Get('search')
+  searchUsers(
+    @CurrentUser() user: SafeUser,
+    @Query() query: SearchUsersQueryDto,
+  ) {
+    return this.friendsService.searchUsers(user.id, query.q);
   }
 
   @Post('requests/:username')

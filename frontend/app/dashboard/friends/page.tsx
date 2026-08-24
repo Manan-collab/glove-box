@@ -2,9 +2,11 @@
 
 import {
   Alert,
+  Autocomplete,
   Avatar,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Grid,
   Stack,
@@ -13,14 +15,16 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useAcceptFriendRequest,
   useFriendRequests,
   useFriends,
   useRejectFriendRequest,
+  useSearchUsers,
   useSendFriendRequest,
 } from "@/hooks/use-friends";
-import type { PublicProfile } from "@/lib/friends-api";
+import type { PublicProfile, SearchedUser } from "@/lib/friends-api";
 
 export default function FriendsPage() {
   const { data: friends, isLoading: friendsLoading } = useFriends();
@@ -28,7 +32,9 @@ export default function FriendsPage() {
   const sendRequest = useSendFriendRequest();
   const acceptRequest = useAcceptFriendRequest();
   const rejectRequest = useRejectFriendRequest();
-  const [username, setUsername] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const { data: searchResults, isFetching: searchFetching } = useSearchUsers(debouncedSearch);
 
   const incoming = requests?.incoming ?? [];
   const outgoing = requests?.outgoing ?? [];
@@ -42,30 +48,42 @@ export default function FriendsPage() {
         </Typography>
       </Box>
 
-      <Stack
-        direction="row"
-        spacing={1}
-        component="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!username.trim()) return;
-          sendRequest.mutate(username.trim(), {
-            onSuccess: () => setUsername(""),
-          });
-        }}
+      <Autocomplete<SearchedUser>
         sx={{ maxWidth: 420 }}
-      >
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Send a friend request by username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <Button type="submit" variant="contained" loading={sendRequest.isPending}>
-          Send
-        </Button>
-      </Stack>
+        size="small"
+        options={searchResults ?? []}
+        loading={searchFetching}
+        filterOptions={(options) => options}
+        value={null}
+        inputValue={searchInput}
+        onInputChange={(_, newValue, reason) => {
+          if (reason === "reset") return;
+          setSearchInput(newValue);
+        }}
+        onChange={(_, selected) => {
+          if (!selected) return;
+          sendRequest.mutate(selected.username);
+          setSearchInput("");
+        }}
+        getOptionLabel={(option) => option.username}
+        isOptionEqualToValue={(option, val) => option.id === val.id}
+        getOptionDisabled={(option) => option.status !== "NONE"}
+        noOptionsText={debouncedSearch.trim() ? "No matching users" : "Type a username or name to search"}
+        renderOption={({ key, ...liProps }, option) => (
+          <Box
+            component="li"
+            key={key}
+            {...liProps}
+            sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}
+          >
+            <ProfileRow profile={option} />
+            <FriendStatusHint status={option.status} />
+          </Box>
+        )}
+        renderInput={(params) => (
+          <TextField {...params} placeholder="Search by username or name" />
+        )}
+      />
       {sendRequest.isError && (
         <Alert severity="error" sx={{ maxWidth: 420 }}>
           {sendRequest.error.message}
@@ -191,6 +209,31 @@ function ProfileRow({ profile }: { profile: PublicProfile }) {
       </Box>
     </Stack>
   );
+}
+
+function FriendStatusHint({ status }: { status: SearchedUser["status"] }) {
+  switch (status) {
+    case "FRIENDS":
+      return <Chip size="small" label="Friends" />;
+    case "REQUEST_SENT":
+      return (
+        <Typography sx={{ fontSize: 12, color: "text.secondary", flexShrink: 0 }}>
+          Requested
+        </Typography>
+      );
+    case "REQUEST_RECEIVED":
+      return (
+        <Typography sx={{ fontSize: 12, color: "warning.main", flexShrink: 0 }}>
+          Respond below
+        </Typography>
+      );
+    default:
+      return (
+        <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "primary.main", flexShrink: 0 }}>
+          + Send
+        </Typography>
+      );
+  }
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

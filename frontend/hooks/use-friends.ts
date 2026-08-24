@@ -5,6 +5,7 @@ import {
   listFriendRequests,
   listFriends,
   rejectFriendRequest,
+  searchUsers,
   sendFriendRequest,
   unfriend,
 } from "@/lib/friends-api";
@@ -26,6 +27,15 @@ export function usePublicGarage(username: string) {
     queryFn: () => getPublicGarage(username),
     enabled: !!username,
     retry: false,
+  });
+}
+
+export function useSearchUsers(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ["friends", "search", trimmed],
+    queryFn: () => searchUsers(trimmed),
+    enabled: trimmed.length > 0,
   });
 }
 
