@@ -1,24 +1,40 @@
 model Car {
-  id            String   @id @default(uuid())
-  userId        String
-  make          String
-  model         String
-  year          Int
-  variant       String
-  vin           String?
-  engine        String
-  fuelType      String
-  transmission  String
-  bodyType      String
-  powerBhp      Int?
-  vehicleApiRef String?
-  odometerKm    Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  userId              String
+  make                String
+  model               String
+  year                Int
+  variant             String
+  vin                 String?
+  engine              String
+  fuelType            String
+  transmission        String
+  bodyType            String
+  powerBhp            Int?
+  vehicleApiRef       String?
+  odometerKm          Int
+  usageTag            String?
+  insuranceExpiryDate DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses Expense[]
+  notes    CarNote[]
 
   @@index([userId])
   @@map("cars")
+}
+
+// Append-only — no edit, just add/delete (see the car detail page's History tab).
+model CarNote {
+  id        String   @id @default(uuid())
+  carId     String
+  body      String
+  createdAt DateTime @default(now())
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId, createdAt(sort: Desc)])
+  @@map("car_notes")
 }

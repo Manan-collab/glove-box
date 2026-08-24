@@ -2,8 +2,7 @@
 
 import { Alert, Box, CircularProgress, Grid, Stack, Typography } from "@mui/material";
 import { BarChart } from "@mui/x-charts/BarChart";
-import { Panel, StatCard } from "@/features/analytics/analytics-ui";
-import { categoryMeta } from "@/features/expenses/expense-categories";
+import { CategoryBreakdownBars, Panel, StatCard } from "@/features/analytics/analytics-ui";
 import { useGarageAnalytics } from "@/hooks/use-analytics";
 import { formatCurrency } from "@/lib/format-currency";
 
@@ -30,8 +29,6 @@ export default function AnalyticsPage() {
       </Stack>
     );
   }
-
-  const maxCategoryTotal = Math.max(...data.spendByCategory.map((c) => c.total), 1);
 
   return (
     <Stack spacing={3}>
@@ -75,46 +72,7 @@ export default function AnalyticsPage() {
 
       {data.spendByCategory.length > 0 && (
         <Panel title="By category — all cars">
-          <Stack spacing={1.5}>
-            {data.spendByCategory
-              .sort((a, b) => b.total - a.total)
-              .map((row) => {
-                const meta = categoryMeta(row.category);
-                return (
-                  <Stack
-                    key={row.category}
-                    direction="row"
-                    spacing={1.5}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <Typography sx={{ fontSize: 13, width: 90, flexShrink: 0 }}>
-                      {meta.icon} {meta.label}
-                    </Typography>
-                    <Box
-                      sx={{
-                        flex: 1,
-                        height: 9,
-                        borderRadius: 20,
-                        bgcolor: "background.default",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          height: "100%",
-                          borderRadius: 20,
-                          bgcolor: "primary.main",
-                          width: `${(row.total / maxCategoryTotal) * 100}%`,
-                        }}
-                      />
-                    </Box>
-                    <Typography sx={{ fontSize: 13, fontWeight: 600, width: 90, textAlign: "right" }}>
-                      {formatCurrency(row.total)}
-                    </Typography>
-                  </Stack>
-                );
-              })}
-          </Stack>
+          <CategoryBreakdownBars rows={data.spendByCategory} />
         </Panel>
       )}
 

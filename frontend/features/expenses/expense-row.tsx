@@ -60,7 +60,7 @@ export function ExpenseRow({
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{meta.label}</Typography>
-        {expense.odometerKm && (
+        {expense.odometerKm != null && (
           <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
             {expense.odometerKm.toLocaleString()} km
           </Typography>

@@ -27,6 +27,7 @@ import {
 } from "@/lib/vehicle-catalog";
 import {
   BODY_TYPES,
+  CAR_USAGE_TAGS,
   type CarFormSchema,
   carFormSchema,
   FUEL_TYPES,
@@ -34,6 +35,10 @@ import {
 } from "./car-form-schema";
 
 type CarFormInput = z.input<typeof carFormSchema>;
+
+function fromISODate(value?: string) {
+  return value ? value.slice(0, 10) : "";
+}
 
 interface CarFormDialogProps {
   open: boolean;
@@ -73,7 +78,12 @@ export function CarFormDialog({
       transmission: "",
       bodyType: "",
       odometerKm: 0,
+      usageTag: "",
+      insuranceExpiryDate: "",
       ...defaultValues,
+      ...(defaultValues?.insuranceExpiryDate && {
+        insuranceExpiryDate: fromISODate(defaultValues.insuranceExpiryDate),
+      }),
     },
   });
 
@@ -104,6 +114,8 @@ export function CarFormDialog({
       ...values,
       vin: values.vin || undefined,
       powerBhp: values.powerBhp || undefined,
+      usageTag: values.usageTag || undefined,
+      insuranceExpiryDate: values.insuranceExpiryDate || undefined,
     });
   });
 
@@ -339,6 +351,46 @@ export function CarFormDialog({
                   fullWidth
                   error={!!errors.vin}
                   helperText={errors.vin?.message ?? "Optional"}
+                />
+              )}
+            />
+          </Grid>
+          <Grid size={6}>
+            <Controller
+              name="usageTag"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ""}
+                  select
+                  label="Usage"
+                  fullWidth
+                  helperText="Optional"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {CAR_USAGE_TAGS.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          </Grid>
+          <Grid size={6}>
+            <Controller
+              name="insuranceExpiryDate"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ""}
+                  type="date"
+                  label="Insurance expiry"
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText="Optional"
                 />
               )}
             />

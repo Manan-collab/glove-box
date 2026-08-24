@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
@@ -67,4 +68,14 @@ export class CreateCarDto {
   @IsInt()
   @Min(0)
   odometerKm: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  usageTag?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  insuranceExpiryDate?: string;
 }

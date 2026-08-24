@@ -10,17 +10,37 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
+  MenuItem,
   Stack,
+  Tab,
+  Tabs,
+  TextField,
   Typography,
 } from "@mui/material";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { AddNoteDialog } from "@/features/cars/add-note-dialog";
 import { CarFormDialog } from "@/features/cars/car-form-dialog";
 import { carGradient } from "@/features/cars/car-gradient";
+import { CategoryBreakdownBars, Panel, StatCard } from "@/features/analytics/analytics-ui";
+import { DataIoDialog } from "@/features/data-io/data-io-dialog";
+import { EXPENSE_CATEGORIES } from "@/features/expenses/expense-categories";
+import type { ExpenseCategory } from "@/features/expenses/expense-categories";
 import { ExpenseFormDialog } from "@/features/expenses/expense-form-dialog";
 import { ExpenseRow } from "@/features/expenses/expense-row";
 import { timeAgo } from "@/lib/time-ago";
+import { formatCurrency } from "@/lib/format-currency";
+import {
+  getAcquisition,
+  getHealthScore,
+  getInsuranceDaysLeft,
+  getLastServiceKmAgo,
+  getOwnedLabel,
+} from "@/lib/car-facts";
 import type { Expense } from "@/lib/expenses-api";
+import type { CarNote } from "@/lib/notes-api";
+import { useCarAnalytics } from "@/hooks/use-analytics";
 import { useCar, useDeleteCar, useUpdateCar } from "@/hooks/use-cars";
 import {
   useCreateExpense,
@@ -28,6 +48,9 @@ import {
   useExpenses,
   useUpdateExpense,
 } from "@/hooks/use-expenses";
+import { useCarNotes, useCreateNote, useDeleteNote } from "@/hooks/use-notes";
+
+type TabKey = "overview" | "expenses" | "history";
 
 export default function CarDetailPage() {
   const params = useParams<{ id: string }>();
@@ -37,6 +60,7 @@ export default function CarDetailPage() {
   const deleteCar = useDeleteCar();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [tab, setTab] = useState<TabKey>("overview");
 
   const { data: expensesPage, isLoading: expensesLoading } = useExpenses(params.id);
   const createExpense = useCreateExpense(params.id);
@@ -45,6 +69,14 @@ export default function CarDetailPage() {
   const updateExpense = useUpdateExpense(params.id, editingExpense?.id ?? "");
   const deleteExpense = useDeleteExpense(params.id);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | "ALL">("ALL");
+  const [dataIoOpen, setDataIoOpen] = useState(false);
+
+  const { data: analytics } = useCarAnalytics(params.id);
+  const { data: notes } = useCarNotes(params.id);
+  const createNote = useCreateNote(params.id);
+  const deleteNote = useDeleteNote(params.id);
+  const [addNoteOpen, setAddNoteOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -59,9 +91,23 @@ export default function CarDetailPage() {
   }
 
   const expenses = expensesPage?.data ?? [];
+  const acquisition = getAcquisition(car, expenses);
+  const ownedLabel = getOwnedLabel(acquisition);
+  const lastServiceKmAgo = getLastServiceKmAgo(car, expenses);
+  const insuranceDaysLeft = getInsuranceDaysLeft(car);
+  const health = getHealthScore(car, expenses);
+
+  const filteredExpenses =
+    categoryFilter === "ALL" ? expenses : expenses.filter((e) => e.category === categoryFilter);
+  const monthGroups = groupByMonth(filteredExpenses);
+
+  const historyEntries = [
+    ...expenses.map((expense) => ({ type: "expense" as const, date: expense.expenseDate, expense })),
+    ...(notes ?? []).map((note) => ({ type: "note" as const, date: note.createdAt, note })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
-    <Stack spacing={3} sx={{ maxWidth: 720 }}>
+    <Stack spacing={3} sx={{ maxWidth: 900 }}>
       <Button
         onClick={() => router.push("/dashboard")}
         sx={{ alignSelf: "flex-start", color: "text.secondary" }}
@@ -81,20 +127,36 @@ export default function CarDetailPage() {
         />
         <Box sx={{ flex: 1 }}>
           <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
-            {car.year} {car.make} {car.model}
+            {car.make} {car.model}
           </Typography>
           <Typography sx={{ color: "text.secondary", fontSize: 13.5, mt: 0.5 }}>
-            {car.variant} · {car.engine} · {car.transmission}
+            {car.variant} · {car.year} · {car.engine} · {car.transmission}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>
-            <Chip size="small" label={car.fuelType} />
-            <Chip size="small" label={car.bodyType} />
-            {car.powerBhp && <Chip size="small" label={`${car.powerBhp} bhp`} />}
+            {car.usageTag && <Chip size="small" label={car.usageTag} />}
+            <Chip size="small" label={ownedLabel} />
+            {health.score != null && (
+              <Chip
+                size="small"
+                label={`Health ${health.score}%`}
+                color={health.score >= 80 ? "success" : health.score >= 50 ? "warning" : "error"}
+              />
+            )}
           </Stack>
-          <Stack direction="row" spacing={1.25} sx={{ mt: 2 }}>
-            <Button variant="contained" onClick={() => setEditOpen(true)}>
-              Edit
+          <Stack direction="row" spacing={1.25} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setEditingExpense(null);
+                setExpenseFormOpen(true);
+              }}
+            >
+              + Expense
             </Button>
+            <Button variant="outlined" onClick={() => setAddNoteOpen(true)}>
+              Add Note
+            </Button>
+            <Button onClick={() => setEditOpen(true)}>Edit</Button>
             <Button color="error" onClick={() => setConfirmDeleteOpen(true)}>
               Delete
             </Button>
@@ -102,59 +164,215 @@ export default function CarDetailPage() {
         </Box>
       </Stack>
 
-      <Stack spacing={1} sx={{ pt: 1 }}>
-        <DetailRow label="Odometer" value={`${car.odometerKm.toLocaleString()} km`} />
-        <DetailRow label="VIN" value={car.vin ?? "—"} />
-        <DetailRow label="Added" value={timeAgo(car.createdAt)} />
-      </Stack>
+      <Tabs value={tab} onChange={(_, value: TabKey) => setTab(value)}>
+        <Tab value="overview" label="Overview" />
+        <Tab value="expenses" label="Expenses" />
+        <Tab value="history" label="History" />
+      </Tabs>
 
-      <Box
-        sx={{
-          bgcolor: "background.paper",
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: "14px",
-          p: 2.5,
-        }}
-      >
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-          <Typography sx={{ fontSize: 15, fontWeight: 700 }}>Expenses</Typography>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() => {
-              setEditingExpense(null);
-              setExpenseFormOpen(true);
+      {tab === "overview" && (
+        <Stack spacing={2}>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard value={formatCurrency(analytics?.totalSpend ?? 0)} label="Total spent" accent />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard
+                value={analytics?.costPerKm != null ? `₹${analytics.costPerKm.toFixed(2)}/km` : "—"}
+                label="Cost per km"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard
+                value={analytics?.trackedKm != null ? `${analytics.trackedKm.toLocaleString()} km` : "—"}
+                label="Tracked"
+              />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Panel title="Recent Expenses">
+                {expenses.length === 0 ? (
+                  <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
+                    No expenses logged yet.
+                  </Typography>
+                ) : (
+                  expenses
+                    .slice(0, 5)
+                    .map((expense) => (
+                      <ExpenseRow
+                        key={expense.id}
+                        expense={expense}
+                        onClick={() => {
+                          setEditingExpense(expense);
+                          setExpenseFormOpen(true);
+                        }}
+                        onDelete={() => setDeletingExpenseId(expense.id)}
+                      />
+                    ))
+                )}
+              </Panel>
+            </Grid>
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Panel title="Quick Facts">
+                <Stack spacing={1.5}>
+                  <FactRow
+                    label={acquisition.label}
+                    value={
+                      new Date(acquisition.date).toLocaleDateString(undefined, {
+                        month: "short",
+                        year: "numeric",
+                      }) + (acquisition.purchasePrice ? ` · ${formatCurrency(acquisition.purchasePrice)}` : "")
+                    }
+                  />
+                  <FactRow
+                    label="Last service"
+                    value={lastServiceKmAgo != null ? `${lastServiceKmAgo.toLocaleString()} km ago` : "Not logged yet"}
+                  />
+                  <FactRow
+                    label="Insurance"
+                    value={
+                      insuranceDaysLeft == null
+                        ? "Not set"
+                        : insuranceDaysLeft < 0
+                          ? "Expired"
+                          : `${insuranceDaysLeft} days left`
+                    }
+                    chipColor={
+                      insuranceDaysLeft == null
+                        ? undefined
+                        : insuranceDaysLeft < 30
+                          ? "error"
+                          : insuranceDaysLeft < 90
+                            ? "warning"
+                            : "success"
+                    }
+                  />
+                </Stack>
+              </Panel>
+            </Grid>
+          </Grid>
+
+          {analytics && analytics.spendByCategory.length > 0 && (
+            <Panel title="Spending Breakdown">
+              <CategoryBreakdownBars rows={analytics.spendByCategory} />
+            </Panel>
+          )}
+        </Stack>
+      )}
+
+      {tab === "expenses" && (
+        <Stack spacing={2}>
+          <Stack direction="row" sx={{ justifyContent: "space-between", flexWrap: "wrap", gap: 1.5 }}>
+            <TextField
+              select
+              size="small"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as ExpenseCategory | "ALL")}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="ALL">All categories</MenuItem>
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <MenuItem key={cat.value} value={cat.value}>
+                  {cat.icon} {cat.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" size="small" onClick={() => setDataIoOpen(true)}>
+                ↑ Import
+              </Button>
+              <Button variant="outlined" size="small" onClick={() => setDataIoOpen(true)}>
+                ↓ Export
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Box
+            sx={{
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "14px",
+              p: 2.5,
             }}
           >
-            + Expense
-          </Button>
-        </Stack>
+            {expensesLoading && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
 
-        {expensesLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-            <CircularProgress size={24} />
+            {!expensesLoading && filteredExpenses.length === 0 && (
+              <Typography sx={{ fontSize: 13.5, color: "text.secondary", py: 1 }}>
+                No expenses in this category yet.
+              </Typography>
+            )}
+
+            {monthGroups.map(([month, monthExpenses]) => (
+              <Box key={month} sx={{ mb: 2, "&:last-of-type": { mb: 0 } }}>
+                <Typography
+                  sx={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    color: "text.secondary",
+                    textTransform: "uppercase",
+                    mb: 0.5,
+                  }}
+                >
+                  {month}
+                </Typography>
+                {monthExpenses.map((expense) => (
+                  <ExpenseRow
+                    key={expense.id}
+                    expense={expense}
+                    onClick={() => {
+                      setEditingExpense(expense);
+                      setExpenseFormOpen(true);
+                    }}
+                    onDelete={() => setDeletingExpenseId(expense.id)}
+                  />
+                ))}
+              </Box>
+            ))}
           </Box>
-        )}
+        </Stack>
+      )}
 
-        {!expensesLoading && expenses.length === 0 && (
-          <Typography sx={{ fontSize: 13.5, color: "text.secondary", py: 1 }}>
-            No expenses logged yet.
-          </Typography>
-        )}
-
-        {expenses.map((expense) => (
-          <ExpenseRow
-            key={expense.id}
-            expense={expense}
-            onClick={() => {
-              setEditingExpense(expense);
-              setExpenseFormOpen(true);
-            }}
-            onDelete={() => setDeletingExpenseId(expense.id)}
-          />
-        ))}
-      </Box>
+      {tab === "history" && (
+        <Box
+          sx={{
+            bgcolor: "background.paper",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: "14px",
+            p: 2.5,
+          }}
+        >
+          {historyEntries.length === 0 && (
+            <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
+              Nothing logged yet.
+            </Typography>
+          )}
+          {historyEntries.map((entry) =>
+            entry.type === "expense" ? (
+              <ExpenseRow
+                key={`expense-${entry.expense.id}`}
+                expense={entry.expense}
+                onClick={() => {
+                  setEditingExpense(entry.expense);
+                  setExpenseFormOpen(true);
+                }}
+                onDelete={() => setDeletingExpenseId(entry.expense.id)}
+              />
+            ) : (
+              <NoteRow key={`note-${entry.note.id}`} note={entry.note} onDelete={() => deleteNote.mutate(entry.note.id)} />
+            ),
+          )}
+        </Box>
+      )}
 
       <CarFormDialog
         key={car.updatedAt}
@@ -175,6 +393,8 @@ export default function CarDetailPage() {
           bodyType: car.bodyType,
           powerBhp: car.powerBhp ?? undefined,
           odometerKm: car.odometerKm,
+          usageTag: car.usageTag ?? "",
+          insuranceExpiryDate: car.insuranceExpiryDate ?? "",
         }}
         onSubmit={(values) => {
           updateCar.mutate(values, { onSuccess: () => setEditOpen(false) });
@@ -217,6 +437,18 @@ export default function CarDetailPage() {
           }
         }}
       />
+
+      <AddNoteDialog
+        open={addNoteOpen}
+        onClose={() => setAddNoteOpen(false)}
+        isSubmitting={createNote.isPending}
+        error={createNote.error?.message}
+        onSubmit={(body) => {
+          createNote.mutate(body, { onSuccess: () => setAddNoteOpen(false) });
+        }}
+      />
+
+      <DataIoDialog open={dataIoOpen} onClose={() => setDataIoOpen(false)} />
 
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
         <DialogTitle>Delete this car?</DialogTitle>
@@ -269,13 +501,79 @@ export default function CarDetailPage() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function groupByMonth(expenses: Expense[]): [string, Expense[]][] {
+  const groups = new Map<string, Expense[]>();
+  for (const expense of expenses) {
+    const key = new Date(expense.expenseDate).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.push(expense);
+    } else {
+      groups.set(key, [expense]);
+    }
+  }
+  return Array.from(groups.entries());
+}
+
+function FactRow({
+  label,
+  value,
+  chipColor,
+}: {
+  label: string;
+  value: string;
+  chipColor?: "success" | "warning" | "error";
+}) {
   return (
-    <Stack direction="row" spacing={2}>
-      <Typography variant="body2" color="text.secondary" sx={{ width: 120 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{value}</Typography>
+    <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+      <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>{label}</Typography>
+      {chipColor ? (
+        <Chip size="small" label={value} color={chipColor} />
+      ) : (
+        <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{value}</Typography>
+      )}
+    </Stack>
+  );
+}
+
+function NoteRow({ note, onDelete }: { note: CarNote; onDelete: () => void }) {
+  return (
+    <Stack
+      direction="row"
+      spacing={1.5}
+      sx={{
+        alignItems: "center",
+        py: 1.5,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        "&:last-of-type": { borderBottom: "none" },
+      }}
+    >
+      <Box
+        sx={{
+          width: 34,
+          height: 34,
+          borderRadius: "9px",
+          bgcolor: "background.default",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 16,
+          flexShrink: 0,
+        }}
+      >
+        📝
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 13.5 }}>{note.body}</Typography>
+        <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{timeAgo(note.createdAt)}</Typography>
+      </Box>
+      <Button size="small" onClick={onDelete} sx={{ color: "text.secondary", minWidth: "auto" }}>
+        ✕
+      </Button>
     </Stack>
   );
 }

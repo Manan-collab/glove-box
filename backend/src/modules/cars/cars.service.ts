@@ -10,7 +10,16 @@ export class CarsService {
   constructor(private readonly prisma: PrismaService) {}
 
   create(userId: string, dto: CreateCarDto) {
-    return this.prisma.car.create({ data: { ...dto, userId } });
+    const { insuranceExpiryDate, ...rest } = dto;
+    return this.prisma.car.create({
+      data: {
+        ...rest,
+        userId,
+        ...(insuranceExpiryDate && {
+          insuranceExpiryDate: new Date(insuranceExpiryDate),
+        }),
+      },
+    });
   }
 
   async findAllForUser(userId: string, { page, pageSize }: PaginationQueryDto) {
@@ -39,7 +48,16 @@ export class CarsService {
 
   async update(userId: string, carId: string, dto: UpdateCarDto) {
     await this.findOneForUser(userId, carId);
-    return this.prisma.car.update({ where: { id: carId }, data: dto });
+    const { insuranceExpiryDate, ...rest } = dto;
+    return this.prisma.car.update({
+      where: { id: carId },
+      data: {
+        ...rest,
+        ...(insuranceExpiryDate && {
+          insuranceExpiryDate: new Date(insuranceExpiryDate),
+        }),
+      },
+    });
   }
 
   async remove(userId: string, carId: string) {

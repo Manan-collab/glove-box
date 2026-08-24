@@ -1,6 +1,8 @@
 "use client";
 
-import { Box, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import { categoryMeta, type ExpenseCategory } from "@/features/expenses/expense-categories";
+import { formatCurrency } from "@/lib/format-currency";
 
 export function StatCard({
   value,
@@ -55,5 +57,52 @@ export function Panel({
       </Box>
       {children}
     </Box>
+  );
+}
+
+export function CategoryBreakdownBars({
+  rows,
+}: {
+  rows: { category: ExpenseCategory; total: number }[];
+}) {
+  const maxTotal = Math.max(...rows.map((row) => row.total), 1);
+
+  return (
+    <Stack spacing={1.5}>
+      {rows
+        .slice()
+        .sort((a, b) => b.total - a.total)
+        .map((row) => {
+          const meta = categoryMeta(row.category);
+          return (
+            <Stack key={row.category} direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+              <Typography sx={{ fontSize: 13, width: 90, flexShrink: 0 }}>
+                {meta.icon} {meta.label}
+              </Typography>
+              <Box
+                sx={{
+                  flex: 1,
+                  height: 9,
+                  borderRadius: 20,
+                  bgcolor: "background.default",
+                  overflow: "hidden",
+                }}
+              >
+                <Box
+                  sx={{
+                    height: "100%",
+                    borderRadius: 20,
+                    bgcolor: "primary.main",
+                    width: `${(row.total / maxTotal) * 100}%`,
+                  }}
+                />
+              </Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, width: 90, textAlign: "right" }}>
+                {formatCurrency(row.total)}
+              </Typography>
+            </Stack>
+          );
+        })}
+    </Stack>
   );
 }

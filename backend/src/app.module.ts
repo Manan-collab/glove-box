@@ -12,6 +12,7 @@ import { DataIoModule } from './modules/data-io/data-io.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { HealthModule } from './modules/health/health.module';
+import { NotesModule } from './modules/notes/notes.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     FriendsModule,
     UsersModule,
     DataIoModule,
+    NotesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

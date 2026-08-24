@@ -15,6 +15,8 @@ export interface Car {
   powerBhp: number | null;
   vehicleApiRef: string | null;
   odometerKm: number;
+  usageTag: string | null;
+  insuranceExpiryDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,8 @@ export type CarFormValues = {
   bodyType: string;
   powerBhp?: number;
   odometerKm: number;
+  usageTag?: string;
+  insuranceExpiryDate?: string;
 };
 
 export function listCars() {

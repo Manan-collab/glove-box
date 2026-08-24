@@ -21,6 +21,8 @@ export const carFormSchema = z.object({
     z.number().int().min(1).optional(),
   ),
   odometerKm: z.coerce.number().int().min(0, "Must be 0 or more"),
+  usageTag: z.string().optional(),
+  insuranceExpiryDate: z.string().optional(),
 });
 
 export type CarFormSchema = z.infer<typeof carFormSchema>;
@@ -36,4 +38,10 @@ export const BODY_TYPES = [
   "Convertible",
   "Pickup",
   "Van",
+];
+export const CAR_USAGE_TAGS = [
+  "Daily Driver",
+  "Weekend Car",
+  "Project Car",
+  "Garage Queen",
 ];

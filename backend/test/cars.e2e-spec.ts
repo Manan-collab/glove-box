@@ -117,6 +117,35 @@ describe('Cars (e2e)', () => {
     expect(res.body.id).toBeDefined();
   });
 
+  it('round-trips usageTag and insuranceExpiryDate', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/cars')
+      .set(asUserA())
+      .send({
+        ...VALID_CAR,
+        usageTag: 'Daily Driver',
+        insuranceExpiryDate: '2027-01-15',
+      })
+      .expect(201);
+
+    expect(createRes.body.usageTag).toBe('Daily Driver');
+    expect(createRes.body.insuranceExpiryDate).toBe(
+      new Date('2027-01-15').toISOString(),
+    );
+
+    const updateRes = await request(app.getHttpServer())
+      .patch(`/cars/${createRes.body.id}`)
+      .set(asUserA())
+      .send({ usageTag: 'Weekend Car' })
+      .expect(200);
+
+    expect(updateRes.body.usageTag).toBe('Weekend Car');
+    // Untouched fields survive a partial update.
+    expect(updateRes.body.insuranceExpiryDate).toBe(
+      new Date('2027-01-15').toISOString(),
+    );
+  });
+
   describe('cross-user isolation', () => {
     let carId: string;
 

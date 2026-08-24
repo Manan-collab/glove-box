@@ -1,4 +1,5 @@
 export type ExpenseCategory =
+  | "PURCHASE"
   | "FUEL"
   | "SERVICE"
   | "REPAIR"
@@ -9,6 +10,7 @@ export type ExpenseCategory =
   | "OTHER";
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: string }[] = [
+  { value: "PURCHASE", label: "Purchase", icon: "🔑" },
   { value: "FUEL", label: "Fuel", icon: "⛽" },
   { value: "SERVICE", label: "Service", icon: "🔧" },
   { value: "REPAIR", label: "Repair", icon: "🔩" },

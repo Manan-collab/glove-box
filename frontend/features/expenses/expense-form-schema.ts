@@ -7,6 +7,7 @@ const optionalNumber = z.preprocess(
 
 export const expenseFormSchema = z.object({
   category: z.enum([
+    "PURCHASE",
     "FUEL",
     "SERVICE",
     "REPAIR",
