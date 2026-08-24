@@ -73,16 +73,21 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState<AnalyticsPeriod>("ALL");
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
 
-  const { data: cars } = useCars();
+  const { data: cars, isLoading: carsLoading } = useCars();
   const isSingleCar = carFilter !== "ALL";
   const { data: garageData, isLoading: garageLoading, isError: garageError } = useGarageAnalytics(period);
   const { data: carAnalyticsData, isLoading: carAnalyticsLoading } = useCarAnalytics(
     isSingleCar ? carFilter : "",
     period,
   );
-  const { data: selectedCar } = useCar(isSingleCar ? carFilter : "");
-  const { data: selectedCarExpensesPage } = useExpenses(isSingleCar ? carFilter : "");
-  const isLoading = isSingleCar ? garageLoading || carAnalyticsLoading : garageLoading;
+  const { data: selectedCar, isLoading: selectedCarLoading } = useCar(isSingleCar ? carFilter : "");
+  const { data: selectedCarExpensesPage, isLoading: selectedCarExpensesLoading } = useExpenses(
+    isSingleCar ? carFilter : "",
+  );
+  const isLoading =
+    garageLoading ||
+    carsLoading ||
+    (isSingleCar && (carAnalyticsLoading || selectedCarLoading || selectedCarExpensesLoading));
 
   if (isLoading) {
     return (
@@ -175,6 +180,12 @@ export default function AnalyticsPage() {
         </Grid>
       </Grid>
 
+      {isSingleCar && health && (
+        <Panel title="Health score">
+          <HealthGauge health={health} />
+        </Panel>
+      )}
+
       {active.monthlySpend.length > 0 && (
         <Panel title="Monthly spending">
           <BarChart
@@ -262,12 +273,6 @@ export default function AnalyticsPage() {
               </Box>
             </Box>
           </Box>
-        </Panel>
-      )}
-
-      {isSingleCar && health && (
-        <Panel title="Health score">
-          <HealthGauge health={health} />
         </Panel>
       )}
 

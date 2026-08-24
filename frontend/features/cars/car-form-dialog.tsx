@@ -404,7 +404,7 @@ export function CarFormDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={submit} disabled={isSubmitting}>
+        <Button variant="contained" onClick={submit} loading={isSubmitting}>
           Save
         </Button>
       </DialogActions>

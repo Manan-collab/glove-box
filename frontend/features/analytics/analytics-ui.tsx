@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, CircularProgress, Skeleton, Stack, Typography } from "@mui/material";
 import { categoryMeta, type ExpenseCategory } from "@/features/expenses/expense-categories";
 import { formatCurrency } from "@/lib/format-currency";
 
@@ -8,10 +8,12 @@ export function StatCard({
   value,
   label,
   accent,
+  loading,
 }: {
   value: string;
   label: string;
   accent?: boolean;
+  loading?: boolean;
 }) {
   return (
     <Box
@@ -23,9 +25,13 @@ export function StatCard({
         p: "20px 22px",
       }}
     >
-      <Typography sx={{ fontSize: 26, fontWeight: 800, color: accent ? "primary.main" : "text.primary" }}>
-        {value}
-      </Typography>
+      {loading ? (
+        <Skeleton variant="text" width={100} height={38} />
+      ) : (
+        <Typography sx={{ fontSize: 26, fontWeight: 800, color: accent ? "primary.main" : "text.primary" }}>
+          {value}
+        </Typography>
+      )}
       <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.5 }}>{label}</Typography>
     </Box>
   );
@@ -56,6 +62,16 @@ export function Panel({
         {action}
       </Box>
       {children}
+    </Box>
+  );
+}
+
+// Shared small-spinner placeholder for a panel's body while its own query
+// is still loading (as opposed to the page-level loading gate).
+export function PanelLoading() {
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+      <CircularProgress size={24} />
     </Box>
   );
 }

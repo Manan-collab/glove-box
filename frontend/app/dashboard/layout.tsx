@@ -174,20 +174,30 @@ export default function DashboardLayout({
               </Box>
               <Divider sx={{ my: 0.5 }} />
               <MenuItem
+                disabled={logout.isPending}
                 onClick={() => {
                   logout.mutate(undefined, { onSuccess: () => router.push("/login") });
                 }}
                 sx={{ color: "error.main" }}
               >
-                <ListItemIcon sx={{ color: "error.main" }}>🚪</ListItemIcon>
+                <ListItemIcon sx={{ color: "error.main" }}>
+                  {logout.isPending ? <CircularProgress size={16} color="error" /> : "🚪"}
+                </ListItemIcon>
                 Log out
               </MenuItem>
             </Menu>
           </Box>
         </Box>
 
-        <Box component="main" sx={{ flex: 1, p: { xs: 2, sm: 3, md: 5 }, maxWidth: 1220 }}>
-          {children}
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            background:
+              "linear-gradient(180deg, color-mix(in srgb, var(--mui-palette-primary-main) 6%, var(--mui-palette-background-default)) 0%, var(--mui-palette-background-default) 480px)",
+          }}
+        >
+          <Box sx={{ p: { xs: 2, sm: 3, md: 5 }, maxWidth: 1220, mx: "auto" }}>{children}</Box>
         </Box>
       </Box>
     </Box>

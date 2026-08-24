@@ -61,24 +61,24 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
           <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
             <Button
               variant="outlined"
-              disabled={exportWorkbook.isPending}
+              loading={exportWorkbook.isPending}
               onClick={() => exportWorkbook.mutate()}
             >
-              {exportWorkbook.isPending ? "Exporting…" : "Export my data"}
+              Export my data
             </Button>
             <Button
               variant="outlined"
-              disabled={downloadTemplate.isPending}
+              loading={downloadTemplate.isPending}
               onClick={() => downloadTemplate.mutate()}
             >
-              {downloadTemplate.isPending ? "Downloading…" : "Download template"}
+              Download template
             </Button>
             <Button
               variant="contained"
-              disabled={importWorkbook.isPending}
+              loading={importWorkbook.isPending}
               onClick={() => fileInputRef.current?.click()}
             >
-              {importWorkbook.isPending ? "Importing…" : "Import from Excel"}
+              Import from Excel
             </Button>
             <input
               ref={fileInputRef}

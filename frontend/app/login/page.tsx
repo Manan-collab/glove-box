@@ -1,14 +1,14 @@
 "use client";
 
 import { GoogleLogin } from "@react-oauth/google";
-import { Alert, Box, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Paper, Stack, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useGoogleLogin, useMe } from "@/hooks/use-auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { data: me } = useMe();
+  const { data: me, isLoading: meLoading } = useMe();
   const googleLogin = useGoogleLogin();
   const [googleError, setGoogleError] = useState(false);
 
@@ -17,6 +17,24 @@ export default function LoginPage() {
       router.replace("/dashboard");
     }
   }, [me, router]);
+
+  // Avoid flashing the sign-in form for a user who's already authenticated
+  // and about to be redirected.
+  if (meLoading || me) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "#14161D",
+        }}
+      >
+        <CircularProgress sx={{ color: "#5B8CFF" }} />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -60,23 +78,30 @@ export default function LoginPage() {
           </Stack>
 
           <Box sx={{ width: "100%", pt: 1, display: "flex", justifyContent: "center" }}>
-            <GoogleLogin
-              onSuccess={(credentialResponse) => {
-                setGoogleError(false);
-                if (!credentialResponse.credential) {
-                  setGoogleError(true);
-                  return;
-                }
-                googleLogin.mutate(credentialResponse.credential, {
-                  onSuccess: () => router.push("/dashboard"),
-                });
-              }}
-              onError={() => setGoogleError(true)}
-              theme="filled_black"
-              shape="pill"
-              size="large"
-              text="continue_with"
-            />
+            {googleLogin.isPending ? (
+              <Stack spacing={1.5} sx={{ alignItems: "center", py: 1.5 }}>
+                <CircularProgress size={28} sx={{ color: "#5B8CFF" }} />
+                <Typography sx={{ fontSize: 13, color: "#A6A9B6" }}>Signing in…</Typography>
+              </Stack>
+            ) : (
+              <GoogleLogin
+                onSuccess={(credentialResponse) => {
+                  setGoogleError(false);
+                  if (!credentialResponse.credential) {
+                    setGoogleError(true);
+                    return;
+                  }
+                  googleLogin.mutate(credentialResponse.credential, {
+                    onSuccess: () => router.push("/dashboard"),
+                  });
+                }}
+                onError={() => setGoogleError(true)}
+                theme="filled_black"
+                shape="pill"
+                size="large"
+                text="continue_with"
+              />
+            )}
           </Box>
 
           {(googleError || googleLogin.isError) && (

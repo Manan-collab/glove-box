@@ -5,6 +5,7 @@ import {
   Avatar,
   Box,
   Button,
+  CircularProgress,
   Grid,
   Stack,
   TextField,
@@ -61,7 +62,7 @@ export default function FriendsPage() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
-        <Button type="submit" variant="contained" disabled={sendRequest.isPending}>
+        <Button type="submit" variant="contained" loading={sendRequest.isPending}>
           Send
         </Button>
       </Stack>
@@ -69,6 +70,12 @@ export default function FriendsPage() {
         <Alert severity="error" sx={{ maxWidth: 420 }}>
           {sendRequest.error.message}
         </Alert>
+      )}
+
+      {(friendsLoading || requestsLoading) && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
       )}
 
       {incoming.length > 0 && (
@@ -87,14 +94,16 @@ export default function FriendsPage() {
                     <Button
                       size="small"
                       variant="contained"
-                      disabled={acceptRequest.isPending}
+                      loading={acceptRequest.isPending && acceptRequest.variables === req.id}
+                      disabled={rejectRequest.isPending && rejectRequest.variables === req.id}
                       onClick={() => acceptRequest.mutate(req.id)}
                     >
                       Accept
                     </Button>
                     <Button
                       size="small"
-                      disabled={rejectRequest.isPending}
+                      loading={rejectRequest.isPending && rejectRequest.variables === req.id}
+                      disabled={acceptRequest.isPending && acceptRequest.variables === req.id}
                       onClick={() => rejectRequest.mutate(req.id)}
                     >
                       Decline

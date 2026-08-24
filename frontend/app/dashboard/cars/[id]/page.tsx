@@ -23,10 +23,11 @@ import { useState } from "react";
 import { AddNoteDialog } from "@/features/cars/add-note-dialog";
 import { CarFormDialog } from "@/features/cars/car-form-dialog";
 import { carGradient } from "@/features/cars/car-gradient";
-import { CategoryBreakdownBars, Panel, StatCard } from "@/features/analytics/analytics-ui";
+import { CategoryBreakdownBars, Panel, PanelLoading, StatCard } from "@/features/analytics/analytics-ui";
 import { DataIoDialog } from "@/features/data-io/data-io-dialog";
 import { EXPENSE_CATEGORIES } from "@/features/expenses/expense-categories";
 import type { ExpenseCategory } from "@/features/expenses/expense-categories";
+import { ExpenseDetailDialog } from "@/features/expenses/expense-detail-dialog";
 import { ExpenseFormDialog } from "@/features/expenses/expense-form-dialog";
 import { ExpenseRow } from "@/features/expenses/expense-row";
 import { timeAgo } from "@/lib/time-ago";
@@ -69,11 +70,12 @@ export default function CarDetailPage() {
   const updateExpense = useUpdateExpense(params.id, editingExpense?.id ?? "");
   const deleteExpense = useDeleteExpense(params.id);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | "ALL">("ALL");
   const [dataIoOpen, setDataIoOpen] = useState(false);
 
-  const { data: analytics } = useCarAnalytics(params.id);
-  const { data: notes } = useCarNotes(params.id);
+  const { data: analytics, isLoading: analyticsLoading } = useCarAnalytics(params.id);
+  const { data: notes, isLoading: notesLoading } = useCarNotes(params.id);
   const createNote = useCreateNote(params.id);
   const deleteNote = useDeleteNote(params.id);
   const [addNoteOpen, setAddNoteOpen] = useState(false);
@@ -170,18 +172,25 @@ export default function CarDetailPage() {
         <Stack spacing={2}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <StatCard value={formatCurrency(analytics?.totalSpend ?? 0)} label="Total spent" accent />
+              <StatCard
+                value={formatCurrency(analytics?.totalSpend ?? 0)}
+                label="Total spent"
+                accent
+                loading={analyticsLoading}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <StatCard
                 value={analytics?.costPerKm != null ? `₹${analytics.costPerKm.toFixed(2)}/km` : "—"}
                 label="Cost per km"
+                loading={analyticsLoading}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <StatCard
                 value={analytics?.trackedKm != null ? `${analytics.trackedKm.toLocaleString()} km` : "—"}
                 label="Tracked"
+                loading={analyticsLoading}
               />
             </Grid>
           </Grid>
@@ -189,7 +198,9 @@ export default function CarDetailPage() {
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 7 }}>
               <Panel title="Recent Expenses">
-                {expenses.length === 0 ? (
+                {expensesLoading ? (
+                  <PanelLoading />
+                ) : expenses.length === 0 ? (
                   <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                     No expenses logged yet.
                   </Typography>
@@ -200,7 +211,8 @@ export default function CarDetailPage() {
                       <ExpenseRow
                         key={expense.id}
                         expense={expense}
-                        onClick={() => {
+                        onView={() => setViewingExpense(expense)}
+                        onEdit={() => {
                           setEditingExpense(expense);
                           setExpenseFormOpen(true);
                         }}
@@ -250,7 +262,12 @@ export default function CarDetailPage() {
             </Grid>
           </Grid>
 
-          {analytics && analytics.spendByCategory.length > 0 && (
+          {analyticsLoading && (
+            <Panel title="Spending Breakdown">
+              <PanelLoading />
+            </Panel>
+          )}
+          {!analyticsLoading && analytics && analytics.spendByCategory.length > 0 && (
             <Panel title="Spending Breakdown">
               <CategoryBreakdownBars rows={analytics.spendByCategory} />
             </Panel>
@@ -264,13 +281,20 @@ export default function CarDetailPage() {
               </Button>
             }
           >
-            {!notes || notes.length === 0 ? (
+            {notesLoading ? (
+              <PanelLoading />
+            ) : !notes || notes.length === 0 ? (
               <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                 No notes yet.
               </Typography>
             ) : (
               notes.map((note) => (
-                <NoteRow key={note.id} note={note} onDelete={() => deleteNote.mutate(note.id)} />
+                <NoteRow
+                  key={note.id}
+                  note={note}
+                  isDeleting={deleteNote.isPending && deleteNote.variables === note.id}
+                  onDelete={() => deleteNote.mutate(note.id)}
+                />
               ))
             )}
           </Panel>
@@ -343,7 +367,8 @@ export default function CarDetailPage() {
                   <ExpenseRow
                     key={expense.id}
                     expense={expense}
-                    onClick={() => {
+                    onView={() => setViewingExpense(expense)}
+                    onEdit={() => {
                       setEditingExpense(expense);
                       setExpenseFormOpen(true);
                     }}
@@ -435,6 +460,8 @@ export default function CarDetailPage() {
 
       <DataIoDialog open={dataIoOpen} onClose={() => setDataIoOpen(false)} />
 
+      <ExpenseDetailDialog expense={viewingExpense} onClose={() => setViewingExpense(null)} />
+
       <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
         <DialogTitle>Delete this car?</DialogTitle>
         <DialogContent>
@@ -448,7 +475,7 @@ export default function CarDetailPage() {
           <Button
             color="error"
             variant="contained"
-            disabled={deleteCar.isPending}
+            loading={deleteCar.isPending}
             onClick={() => {
               deleteCar.mutate(car.id, {
                 onSuccess: () => router.push("/dashboard"),
@@ -470,7 +497,7 @@ export default function CarDetailPage() {
           <Button
             color="error"
             variant="contained"
-            disabled={deleteExpense.isPending}
+            loading={deleteExpense.isPending}
             onClick={() => {
               if (!deletingExpenseId) return;
               deleteExpense.mutate(deletingExpenseId, {
@@ -524,7 +551,15 @@ function FactRow({
   );
 }
 
-function NoteRow({ note, onDelete }: { note: CarNote; onDelete: () => void }) {
+function NoteRow({
+  note,
+  isDeleting,
+  onDelete,
+}: {
+  note: CarNote;
+  isDeleting: boolean;
+  onDelete: () => void;
+}) {
   return (
     <Stack
       direction="row"
@@ -556,7 +591,12 @@ function NoteRow({ note, onDelete }: { note: CarNote; onDelete: () => void }) {
         <Typography sx={{ fontSize: 13.5 }}>{note.body}</Typography>
         <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{timeAgo(note.createdAt)}</Typography>
       </Box>
-      <Button size="small" onClick={onDelete} sx={{ color: "text.secondary", minWidth: "auto" }}>
+      <Button
+        size="small"
+        loading={isDeleting}
+        onClick={onDelete}
+        sx={{ color: "text.secondary", minWidth: "auto" }}
+      >
         ✕
       </Button>
     </Stack>

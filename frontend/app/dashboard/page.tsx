@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CarCard } from "@/features/cars/car-card";
 import { CarFormDialog } from "@/features/cars/car-form-dialog";
 import { DataIoDialog } from "@/features/data-io/data-io-dialog";
-import { Panel, StatCard } from "@/features/analytics/analytics-ui";
+import { Panel, PanelLoading, StatCard } from "@/features/analytics/analytics-ui";
 import { categoryMeta } from "@/features/expenses/expense-categories";
 import { useGarageAnalytics } from "@/hooks/use-analytics";
 import { useCars, useCreateCar } from "@/hooks/use-cars";
@@ -26,7 +26,7 @@ function formatDate(iso: string) {
 export default function DashboardPage() {
   const { data: me } = useMe();
   const { data: cars, isLoading, isError } = useCars();
-  const { data: analytics } = useGarageAnalytics();
+  const { data: analytics, isLoading: analyticsLoading } = useGarageAnalytics();
   const createCar = useCreateCar();
   const [addOpen, setAddOpen] = useState(false);
   const [dataIoOpen, setDataIoOpen] = useState(false);
@@ -47,7 +47,9 @@ export default function DashboardPage() {
           <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
             {carCount === 0
               ? "No cars yet."
-              : `${carCount} car${carCount > 1 ? "s" : ""}. ${formatCurrency(analytics?.totalSpend ?? 0)} spent. Questionable decisions.`}
+              : `${carCount} car${carCount > 1 ? "s" : ""}. ${
+                  analyticsLoading ? "…" : formatCurrency(analytics?.totalSpend ?? 0)
+                } spent. Questionable decisions.`}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1.5}>
@@ -74,18 +76,28 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {carCount > 0 && analytics && (
+      {carCount > 0 && (
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <StatCard value={formatCurrency(analytics.totalSpend)} label="Total spent" accent />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <StatCard value={`${analytics.totalTrackedKm.toLocaleString()} km`} label="Tracked" />
+            <StatCard
+              value={formatCurrency(analytics?.totalSpend ?? 0)}
+              label="Total spent"
+              accent
+              loading={analyticsLoading}
+            />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <StatCard
-              value={analytics.averageCostPerKm != null ? `₹${analytics.averageCostPerKm.toFixed(2)}/km` : "—"}
+              value={`${(analytics?.totalTrackedKm ?? 0).toLocaleString()} km`}
+              label="Tracked"
+              loading={analyticsLoading}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <StatCard
+              value={analytics?.averageCostPerKm != null ? `₹${analytics.averageCostPerKm.toFixed(2)}/km` : "—"}
               label="Average cost"
+              loading={analyticsLoading}
             />
           </Grid>
         </Grid>
@@ -106,11 +118,13 @@ export default function DashboardPage() {
         </Stack>
       )}
 
-      {carCount > 0 && analytics && (
+      {carCount > 0 && (
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Panel title="Recent Expenses">
-              {analytics.recentExpenses.length === 0 ? (
+              {analyticsLoading ? (
+                <PanelLoading />
+              ) : !analytics || analytics.recentExpenses.length === 0 ? (
                 <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                   No expenses logged yet.
                 </Typography>
@@ -168,7 +182,9 @@ export default function DashboardPage() {
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
             <Panel title="This Month">
-              {analytics.currentMonthSpendByCategory.length === 0 ? (
+              {analyticsLoading ? (
+                <PanelLoading />
+              ) : !analytics || analytics.currentMonthSpendByCategory.length === 0 ? (
                 <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                   No spending logged yet this month.
                 </Typography>

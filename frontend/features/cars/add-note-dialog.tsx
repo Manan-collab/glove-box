@@ -58,7 +58,8 @@ export function AddNoteDialog({
         <Button onClick={onClose}>Cancel</Button>
         <Button
           variant="contained"
-          disabled={isSubmitting || !body.trim()}
+          disabled={!body.trim()}
+          loading={isSubmitting}
           onClick={() => onSubmit(body.trim())}
         >
           Save Note
