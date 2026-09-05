@@ -1,0 +1,34 @@
+// A row only ever represents a *pending* request — deleted on accept (a
+// Friendship is created instead) or reject. This deliberately differs from
+// the status-ENUM design sketched in the architecture doc's Section 5: a
+// persisted REJECTED row would sit on the (fromUserId, toUserId) unique
+// constraint forever and block ever re-requesting that person.
+model FriendRequest {
+  id         String   @id @default(uuid())
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("SentFriendRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedFriendRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+  @@map("friend_requests")
+}
+
+// Symmetric and accepted. userAId is always the lexicographically smaller
+// of the two user ids (enforced in FriendsService, not the DB) so a
+// friendship is stored exactly once regardless of who queries it.
+model Friendship {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipsAsA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipsAsB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@map("friendships")
+}
