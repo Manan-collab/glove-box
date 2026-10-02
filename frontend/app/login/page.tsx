@@ -80,7 +80,19 @@ export default function LoginPage() {
             </Typography>
           </Stack>
 
-          <Box sx={{ width: "100%", pt: 1, display: "flex", justifyContent: "center" }}>
+          {/* colorScheme "light": the GIS button is a cross-origin iframe with a
+              light color-scheme. Inside a dark-scheme page the browser paints
+              mismatched iframes with an opaque white backdrop — the white box
+              around the pill. Matching the scheme keeps it transparent. */}
+          <Box
+            sx={{
+              width: "100%",
+              pt: 1,
+              display: "flex",
+              justifyContent: "center",
+              colorScheme: "light",
+            }}
+          >
             {googleLogin.isPending ? (
               <Stack spacing={1.5} sx={{ alignItems: "center", py: 1.5 }}>
                 <CircularProgress size={28} sx={{ color: "#5B8CFF" }} />

@@ -41,7 +41,7 @@ export class DataIoService {
       expensesByCarId.set(expense.carId, list);
     }
 
-    const workbook = buildExportWorkbook(
+    const workbook = await buildExportWorkbook(
       cars.map((car) => ({
         ...car,
         expenses: expensesByCarId.get(car.id) ?? [],
@@ -51,7 +51,7 @@ export class DataIoService {
   }
 
   async buildTemplate(): Promise<Buffer> {
-    const workbook = buildTemplateWorkbook();
+    const workbook = await buildTemplateWorkbook();
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 

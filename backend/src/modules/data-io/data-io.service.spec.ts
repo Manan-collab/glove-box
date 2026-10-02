@@ -6,6 +6,7 @@ import {
   EXAMPLE_SHEET_NAME,
   EXPENSE_COLUMNS,
   EXPENSE_DATA_START_ROW,
+  EXPENSE_HEADER_ROW,
   READ_ME_SHEET_NAME,
 } from './workbook/workbook-columns';
 
@@ -23,6 +24,27 @@ const CAR_FIXTURE = {
   powerBhp: 89,
   odometerKm: 24500,
 };
+
+const EXPENSE_FIXTURE = {
+  id: 'exp-1',
+  carId: 'car-1',
+  category: 'FUEL',
+  amount: 1000,
+  currency: 'INR',
+  expenseDate: new Date('2026-08-01'),
+  odometerKm: 24500,
+  notes: null,
+  workshopName: null,
+  workPerformed: null,
+  whatBroke: null,
+  litres: 10.5,
+  fuelPricePerLitre: 95.24,
+  fuelStation: 'Indian Oil',
+  tyreBrand: null,
+  tyreSize: null,
+};
+
+const colOf = (key: string) => EXPENSE_COLUMNS.find((c) => c.key === key)!.col;
 
 function fullCarSheet(overrides: Partial<Record<string, unknown>> = {}) {
   const values: Record<string, unknown> = {
@@ -152,6 +174,65 @@ describe('DataIoService', () => {
         'Swift 2022',
         'Swift 2022 (2)',
       ]);
+    });
+
+    it('keeps IDs in the file but hides and locks them, leaving data editable', async () => {
+      prisma.car.findMany.mockResolvedValue([CAR_FIXTURE]);
+      prisma.expense.findMany.mockResolvedValue([EXPENSE_FIXTURE]);
+
+      const buffer = await service.exportWorkbook('user-1');
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+      const sheet = wb.getWorksheet('Swift 2022')!;
+      const carIdRow = CAR_HEADER_FIELDS.find((f) => f.key === 'carId')!.row;
+
+      expect(sheet.getCell(carIdRow, 2).value).toBe('car-1');
+      expect(sheet.getRow(carIdRow).hidden).toBe(true);
+      expect(sheet.getCell(carIdRow, 2).protection?.locked).not.toBe(false);
+
+      const idCol = colOf('expenseId');
+      expect(sheet.getCell(EXPENSE_DATA_START_ROW, idCol).value).toBe('exp-1');
+      expect(sheet.getColumn(idCol).hidden).toBe(true);
+
+      const protection = (
+        sheet as unknown as {
+          sheetProtection?: { sheet?: boolean; formatColumns?: boolean };
+        }
+      ).sheetProtection;
+      expect(protection?.sheet).toBe(true);
+      // Unhiding the ID column/row would need format permission.
+      expect(protection?.formatColumns).toBeUndefined();
+
+      expect(sheet.getCell(3, 2).protection?.locked).toBe(false);
+      expect(
+        sheet.getCell(EXPENSE_DATA_START_ROW, colOf('amount')).protection
+          ?.locked,
+      ).toBe(false);
+    });
+
+    it('round-trips: re-importing an export updates records in place', async () => {
+      prisma.car.findMany.mockResolvedValue([CAR_FIXTURE]);
+      prisma.expense.findMany.mockResolvedValue([EXPENSE_FIXTURE]);
+      carsService.update.mockResolvedValue({ id: 'car-1' });
+      expensesService.update.mockResolvedValue({ id: 'exp-1' });
+
+      const buffer = await service.exportWorkbook('user-1');
+      const result = await service.importWorkbook('user-1', buffer);
+
+      expect(result.errors).toEqual([]);
+      expect(result.carsUpdated).toBe(1);
+      expect(result.expensesUpdated).toBe(1);
+      expect(carsService.create).not.toHaveBeenCalled();
+      expect(expensesService.create).not.toHaveBeenCalled();
+      expect(expensesService.update).toHaveBeenCalledWith(
+        'user-1',
+        'exp-1',
+        expect.objectContaining({
+          category: 'FUEL',
+          amount: 1000,
+          expenseDate: '2026-08-01',
+        }),
+      );
     });
   });
 
@@ -418,6 +499,58 @@ describe('DataIoService', () => {
 
       expect(result.carsCreated).toBe(1);
       expect(result.errors).toEqual([]);
+    });
+    it('imports files exported with the old layout (Expense ID in column A)', async () => {
+      carsService.update.mockResolvedValue({ id: 'car-1' });
+      expensesService.update.mockResolvedValue({ id: 'exp-1' });
+      const oldOrder = [
+        ['Expense ID', 'exp-1'],
+        ['Category', 'SERVICE'],
+        ['Amount', 2000],
+        ['Currency', 'INR'],
+        ['Expense Date', '2026-07-01'],
+      ] as const;
+      const buffer = await buildTestWorkbook([
+        { name: 'Old Export', car: fullCarSheet({ carId: 'car-1' }) },
+      ]);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+      const sheet = wb.getWorksheet('Old Export')!;
+      oldOrder.forEach(([label, value], index) => {
+        sheet.getCell(EXPENSE_HEADER_ROW, index + 1).value = label;
+        sheet.getCell(EXPENSE_DATA_START_ROW, index + 1).value = value;
+      });
+      const oldBuffer = Buffer.from(await wb.xlsx.writeBuffer());
+
+      const result = await service.importWorkbook('user-1', oldBuffer);
+
+      expect(result.errors).toEqual([]);
+      expect(expensesService.update).toHaveBeenCalledWith(
+        'user-1',
+        'exp-1',
+        expect.objectContaining({
+          category: 'SERVICE',
+          amount: 2000,
+          expenseDate: '2026-07-01',
+        }),
+      );
+    });
+
+    it('skips a row whose visible cells were cleared, leaving only its hidden ID', async () => {
+      carsService.update.mockResolvedValue({ id: 'car-1' });
+      const buffer = await buildTestWorkbook([
+        {
+          name: 'Cleared Row',
+          car: fullCarSheet({ carId: 'car-1' }),
+          expenses: [{ expenseId: 'exp-1' }],
+        },
+      ]);
+
+      const result = await service.importWorkbook('user-1', buffer);
+
+      expect(result.errors).toEqual([]);
+      expect(expensesService.update).not.toHaveBeenCalled();
+      expect(expensesService.create).not.toHaveBeenCalled();
     });
   });
 });

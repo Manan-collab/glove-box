@@ -146,13 +146,17 @@ export const EXPENSE_DATA_START_ROW = 17;
 // doesn't silently truncate real data below it.
 export const MAX_EXPENSE_ROWS = 2000;
 
+// Expense ID is last so it can be a hidden, locked column without hiding
+// column A (which also carries the Car Details labels). The reader locates
+// columns by header label, so files exported with the older layout (ID in
+// column A) still import correctly.
 export const EXPENSE_COLUMNS: ExpenseColumn[] = [
   {
     col: 1,
-    label: 'Expense ID',
-    key: 'expenseId',
-    required: false,
-    type: 'string',
+    label: 'Expense Date',
+    key: 'expenseDate',
+    required: true,
+    type: 'date',
   },
   {
     col: 2,
@@ -179,43 +183,36 @@ export const EXPENSE_COLUMNS: ExpenseColumn[] = [
   },
   {
     col: 5,
-    label: 'Expense Date',
-    key: 'expenseDate',
-    required: true,
-    type: 'date',
-  },
-  {
-    col: 6,
     label: 'Odometer (km)',
     key: 'odometerKm',
     required: false,
     type: 'number',
     min: 0,
   },
-  { col: 7, label: 'Notes', key: 'notes', required: false, type: 'string' },
+  { col: 6, label: 'Notes', key: 'notes', required: false, type: 'string' },
   {
-    col: 8,
+    col: 7,
     label: 'Workshop Name',
     key: 'workshopName',
     required: false,
     type: 'string',
   },
   {
-    col: 9,
+    col: 8,
     label: 'Work Performed',
     key: 'workPerformed',
     required: false,
     type: 'string',
   },
   {
-    col: 10,
+    col: 9,
     label: 'What Broke',
     key: 'whatBroke',
     required: false,
     type: 'string',
   },
   {
-    col: 11,
+    col: 10,
     label: 'Litres',
     key: 'litres',
     required: false,
@@ -223,7 +220,7 @@ export const EXPENSE_COLUMNS: ExpenseColumn[] = [
     min: 0.01,
   },
   {
-    col: 12,
+    col: 11,
     label: 'Fuel Price/Litre',
     key: 'fuelPricePerLitre',
     required: false,
@@ -231,23 +228,30 @@ export const EXPENSE_COLUMNS: ExpenseColumn[] = [
     min: 0.01,
   },
   {
-    col: 13,
+    col: 12,
     label: 'Fuel Station',
     key: 'fuelStation',
     required: false,
     type: 'string',
   },
   {
-    col: 14,
+    col: 13,
     label: 'Tyre Brand',
     key: 'tyreBrand',
     required: false,
     type: 'string',
   },
   {
-    col: 15,
+    col: 14,
     label: 'Tyre Size',
     key: 'tyreSize',
+    required: false,
+    type: 'string',
+  },
+  {
+    col: 15,
+    label: 'Expense ID',
+    key: 'expenseId',
     required: false,
     type: 'string',
   },

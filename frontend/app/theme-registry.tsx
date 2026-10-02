@@ -11,7 +11,9 @@ export default function ThemeRegistry({
 }) {
   return (
     <AppRouterCacheProvider>
-      <ThemeProvider theme={theme}>
+      {/* No "system" option in ThemeToggle, so new visitors start on dark (the
+          login page's palette) rather than following the OS. */}
+      <ThemeProvider theme={theme} defaultMode="dark">
         <CssBaseline />
         {children}
       </ThemeProvider>

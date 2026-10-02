@@ -4,6 +4,8 @@ import {
   CarRow,
   EXPENSE_COLUMNS,
   EXPENSE_DATA_START_ROW,
+  EXPENSE_HEADER_ROW,
+  ExpenseColumn,
   ExpenseRow,
   MAX_EXPENSE_ROWS,
   ParsedCarSheet,
@@ -118,31 +120,64 @@ function readCarHeader(sheet: ExcelJS.Worksheet): {
     : { car: car as CarRow, carErrors };
 }
 
+// Maps each expense field to the column it actually lives in, by matching the
+// header row's labels — so files exported with an older column order (e.g.
+// Expense ID in column A) still import. Once any label matches, the header is
+// authoritative and an unmatched field is read as blank: falling back to its
+// current position would read some other field's column in an older layout.
+// Only a sheet with no recognizable header uses the current positions.
+function resolveExpenseColumns(
+  sheet: ExcelJS.Worksheet,
+): Array<ExpenseColumn & { sourceCol?: number }> {
+  const known = new Set(EXPENSE_COLUMNS.map((c) => c.label.toLowerCase()));
+  const colByLabel = new Map<string, number>();
+  sheet.getRow(EXPENSE_HEADER_ROW).eachCell((cell, colNumber) => {
+    const label = coerceString(cell.value)?.toLowerCase();
+    if (label && known.has(label) && !colByLabel.has(label)) {
+      colByLabel.set(label, colNumber);
+    }
+  });
+  return EXPENSE_COLUMNS.map((c) => ({
+    ...c,
+    sourceCol:
+      colByLabel.size > 0 ? colByLabel.get(c.label.toLowerCase()) : c.col,
+  }));
+}
+
+function cellValue(
+  sheet: ExcelJS.Worksheet,
+  row: number,
+  col: number | undefined,
+): ExcelJS.CellValue {
+  return col === undefined ? null : sheet.getCell(row, col).value;
+}
+
 function readExpenseRows(sheet: ExcelJS.Worksheet): {
   expenses: ExpenseRow[];
   expenseErrors: RowErrorLike[];
 } {
   const expenses: ExpenseRow[] = [];
   const expenseErrors: RowErrorLike[] = [];
+  const columns = resolveExpenseColumns(sheet);
 
   for (
     let row = EXPENSE_DATA_START_ROW;
     row < EXPENSE_DATA_START_ROW + MAX_EXPENSE_ROWS;
     row++
   ) {
-    const rowValues = EXPENSE_COLUMNS.map(
-      (c) => sheet.getCell(row, c.col).value,
-    );
-    const isBlank = rowValues.every(
-      (v) => v === null || v === undefined || v === '',
-    );
+    // The hidden Expense ID doesn't count: a row whose visible cells were
+    // all cleared is a deleted row, not an invalid one.
+    const isBlank = columns
+      .filter((c) => c.key !== 'expenseId')
+      .map((c) => cellValue(sheet, row, c.sourceCol))
+      .every((v) => v === null || v === undefined || v === '');
     if (isBlank) continue;
 
     const expense: Partial<ExpenseRow> = {};
     const rowErrors: string[] = [];
 
-    for (const col of EXPENSE_COLUMNS) {
-      const raw = sheet.getCell(row, col.col).value;
+    for (const col of columns) {
+      const raw = cellValue(sheet, row, col.sourceCol);
 
       if (col.type === 'number') {
         const { value, invalid } = coerceNumber(raw);
