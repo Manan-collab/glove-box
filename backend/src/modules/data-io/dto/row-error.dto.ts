@@ -10,6 +10,12 @@ export class RowErrorDto {
   })
   row?: number;
 
+  @ApiPropertyOptional({
+    description:
+      'A1-style cell reference (e.g. "C23"), when the issue is about one cell',
+  })
+  cell?: string;
+
   @ApiProperty()
   message: string;
 }

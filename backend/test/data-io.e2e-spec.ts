@@ -236,7 +236,7 @@ describe('DataIo (e2e)', () => {
 
     expect(reimportRes.body.carsCreated).toBe(0);
     expect(reimportRes.body.expensesCreated).toBe(0);
-    expect(reimportRes.body.carsUpdated).toBeGreaterThan(0);
+    expect(reimportRes.body.errors).toEqual([]);
 
     const carsAfter = await prisma.car.count({
       where: { userId: { in: createdUserIds } },
@@ -268,7 +268,6 @@ describe('DataIo (e2e)', () => {
       .attach('file', attackBuffer, 'attack.xlsx')
       .expect(201);
 
-    expect(res.body.carsUpdated).toBe(0);
     expect(res.body.errors).toEqual([
       expect.objectContaining({
         sheet: 'Attack',

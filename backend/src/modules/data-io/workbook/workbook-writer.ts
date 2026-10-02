@@ -158,9 +158,12 @@ function writeCarHeaderBlock(sheet: ExcelJS.Worksheet, car: Partial<CarRow>) {
     valueCell.alignment = { vertical: 'middle', horizontal: 'left' };
     if (field.key === 'odometerKm') valueCell.numFmt = '#,##0';
 
-    // The Car ID row stays in the file (import uses it to update in place)
-    // but is hidden and locked; every other value is editable.
-    if (field.key !== 'carId') valueCell.protection = { locked: false };
+    // Exported cars are locked: import ignores an existing car's details
+    // (cars are edited in the app). Only a template's new-car sheet, which
+    // has no Car ID, is fillable. The Car ID row itself is always hidden.
+    if (!car.carId && field.key !== 'carId') {
+      valueCell.protection = { locked: false };
+    }
 
     if (field.enumValues) {
       valueCell.dataValidation = {
@@ -500,8 +503,11 @@ export async function buildTemplateWorkbook(): Promise<ExcelJS.Workbook> {
   const lines = [
     'Each sheet in this workbook is one car. Duplicate the "Example Car" sheet once for every car you own.',
     "Fill in the Car Details block at the top of the sheet, then list that car's expenses in the table below it.",
-    'Pick Category, Fuel Type, Transmission and Body Type from the dropdowns — other values are rejected on import.',
+    'Pick Category, Currency, Fuel Type, Transmission and Body Type from the dropdowns — other values are rejected on import.',
+    'Type dates day-first (DD/MM/YYYY, e.g. 25/08/2026) or as YYYY-MM-DD. Amounts are plain numbers — "1,500" and "₹1500" are fine.',
+    'Import is all-or-nothing: if any cell has a problem, nothing is imported and you get a list of every cell to fix.',
     'To add an expense to a car you already track in Glovebox, export your data first and edit that file instead of starting from this template.',
+    "In an exported file, each car's details are read-only — edit the car itself in the app. Its expenses can be edited and added to freely.",
     'This "Read Me" sheet is ignored on import — you can delete it or leave it in, either is fine.',
   ];
   const title = readMe.getCell(1, 1);

@@ -17,7 +17,7 @@ import {
   useExportWorkbook,
   useImportWorkbook,
 } from "@/hooks/use-data-io";
-import type { ImportResult } from "@/lib/data-io-api";
+import type { ImportResult, RowError } from "@/lib/data-io-api";
 
 interface DataIoDialogProps {
   open: boolean;
@@ -91,45 +91,74 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
 
           {anyError && <Alert severity="error">{anyError.message}</Alert>}
 
-          {result && (
-            <Box>
-              <Alert severity={result.errors.length > 0 ? "warning" : "success"}>
-                {result.carsCreated} car{result.carsCreated === 1 ? "" : "s"} created,{" "}
-                {result.carsUpdated} updated · {result.expensesCreated} expense
-                {result.expensesCreated === 1 ? "" : "s"} created,{" "}
-                {result.expensesUpdated} updated
-                {result.errors.length > 0 &&
-                  ` · ${result.errors.length} issue${result.errors.length === 1 ? "" : "s"}`}
-              </Alert>
-              {result.errors.length > 0 && (
-                <Stack
-                  spacing={0.75}
-                  sx={{
-                    mt: 1.5,
-                    maxHeight: 220,
-                    overflowY: "auto",
-                    bgcolor: "background.default",
-                    borderRadius: "8px",
-                    p: 1.5,
-                  }}
-                >
-                  {result.errors.map((err, index) => (
-                    <Typography key={index} sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                      <Box component="span" sx={{ fontWeight: 700 }}>
-                        {err.sheet}
-                      </Box>
-                      {err.row ? ` (row ${err.row})` : ""}: {err.message}
-                    </Typography>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          )}
+          {result && <ImportResultSummary result={result} />}
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? "" : "s"}`;
+
+function ImportResultSummary({ result }: { result: ImportResult }) {
+  const failed = result.errors.length > 0;
+  return (
+    <Stack spacing={1.5}>
+      {failed ? (
+        <Alert severity="error">
+          Nothing was imported — the file has {plural(result.errors.length, "problem")}.
+          Fix {result.errors.length === 1 ? "it" : "them"} in Excel and upload the
+          file again.
+        </Alert>
+      ) : (
+        <Alert severity={result.warnings.length > 0 ? "warning" : "success"}>
+          Imported: {plural(result.carsCreated, "car")} created ·{" "}
+          {plural(result.expensesCreated, "expense")} created,{" "}
+          {result.expensesUpdated} updated
+          {result.warnings.length > 0 &&
+            ` · ${plural(result.warnings.length, "note")} below`}
+        </Alert>
+      )}
+      {failed && <IssueList issues={result.errors} />}
+      {result.warnings.length > 0 && (
+        <>
+          {failed && (
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>
+              Also worth checking:
+            </Typography>
+          )}
+          <IssueList issues={result.warnings} />
+        </>
+      )}
+    </Stack>
+  );
+}
+
+function IssueList({ issues }: { issues: RowError[] }) {
+  return (
+    <Stack
+      spacing={0.75}
+      sx={{
+        maxHeight: 220,
+        overflowY: "auto",
+        bgcolor: "background.default",
+        borderRadius: "8px",
+        p: 1.5,
+      }}
+    >
+      {issues.map((issue, index) => (
+        <Typography key={index} sx={{ fontSize: 12.5, color: "text.secondary" }}>
+          <Box component="span" sx={{ fontWeight: 700 }}>
+            {issue.sheet}
+            {issue.cell ? ` › ${issue.cell}` : issue.row ? ` › row ${issue.row}` : ""}
+          </Box>
+          : {issue.message}
+        </Typography>
+      ))}
+    </Stack>
   );
 }

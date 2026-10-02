@@ -3,15 +3,19 @@ import { fetchWithRefresh, throwApiError } from "./api-client";
 export interface RowError {
   sheet: string;
   row?: number;
+  // A1-style reference, e.g. "C23", when the issue is about one cell.
+  cell?: string;
   message: string;
 }
 
 export interface ImportResult {
   carsCreated: number;
-  carsUpdated: number;
   expensesCreated: number;
   expensesUpdated: number;
+  // Any error means nothing was imported — the import is all-or-nothing.
   errors: RowError[];
+  // Adjustments made during an import that otherwise went through.
+  warnings: RowError[];
 }
 
 export async function uploadImport(file: File): Promise<ImportResult> {

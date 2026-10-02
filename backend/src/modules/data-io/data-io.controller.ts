@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -71,6 +72,11 @@ export class DataIoController {
     @CurrentUser() user: SafeUser,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<ImportResultDto> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException(
+        'No file was uploaded — choose an .xlsx file to import.',
+      );
+    }
     return this.dataIoService.importWorkbook(user.id, file.buffer);
   }
 }
