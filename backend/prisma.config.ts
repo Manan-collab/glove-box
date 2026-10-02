@@ -9,6 +9,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // CLI only (migrate, studio) — the app's runtime pool reads DATABASE_URL
+    // separately. `migrate deploy` takes a session-level advisory lock, which
+    // times out (P1002) through Neon's PgBouncer `-pooler` host, so prefer a
+    // direct connection when one is configured.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });
