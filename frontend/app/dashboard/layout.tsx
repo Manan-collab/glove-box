@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { QuickAddExpenseDialog } from "@/features/expenses/quick-add-expense-dialog";
 import { ThemeToggle } from "@/features/shell/theme-toggle";
 import { useLogout, useMe } from "@/hooks/use-auth";
+import { ApiError } from "@/lib/api-client";
 
 const SIDEBAR_WIDTH = 224;
 
@@ -28,16 +29,43 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data, isLoading, isError } = useMe();
+  const { data, isLoading, isError, error, refetch, isFetching } = useMe();
   const logout = useLogout();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
+  // Only a 401 means "signed out". A 429 or network blip shouldn't kick the
+  // user to /login — that used to ping-pong with the login page and hammer
+  // /auth/me until the rate limiter locked everything out.
+  const isUnauthenticated = error instanceof ApiError && error.status === 401;
+
   useEffect(() => {
-    if (isError) {
+    if (isUnauthenticated) {
       router.replace("/login");
     }
-  }, [isError, router]);
+  }, [isUnauthenticated, router]);
+
+  if (isError && !isUnauthenticated && !data) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
+          <Typography sx={{ color: "text.secondary" }}>
+            Couldn&apos;t reach the server. Please try again in a moment.
+          </Typography>
+          <Button variant="outlined" onClick={() => refetch()} disabled={isFetching}>
+            Retry
+          </Button>
+        </Stack>
+      </Box>
+    );
+  }
 
   if (isLoading || !data) {
     return (

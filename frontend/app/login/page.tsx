@@ -8,19 +8,22 @@ import { useGoogleLogin, useMe } from "@/hooks/use-auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { data: me, isLoading: meLoading } = useMe();
+  // isSuccess, not `data`: React Query keeps the last good `data` around even
+  // after a refetch errors, so keying off `data` would bounce a user whose
+  // session just failed straight back to /dashboard — an infinite redirect loop.
+  const { isLoading: meLoading, isSuccess: isAuthenticated } = useMe();
   const googleLogin = useGoogleLogin();
   const [googleError, setGoogleError] = useState(false);
 
   useEffect(() => {
-    if (me) {
+    if (isAuthenticated) {
       router.replace("/dashboard");
     }
-  }, [me, router]);
+  }, [isAuthenticated, router]);
 
   // Avoid flashing the sign-in form for a user who's already authenticated
   // and about to be redirected.
-  if (meLoading || me) {
+  if (meLoading || isAuthenticated) {
     return (
       <Box
         sx={{

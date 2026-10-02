@@ -22,7 +22,11 @@ import { UsersModule } from './modules/users/users.module';
       validate,
       load: [configuration],
     }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 20 }]),
+    // Per-IP, across every route. A single dashboard load fires several
+    // queries at once (me, cars, garage analytics, …), so 20/min was being
+    // exhausted by ordinary navigation. Sensitive routes like POST
+    // /auth/google keep their own tighter @Throttle.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
     HealthModule,
     AuthModule,
