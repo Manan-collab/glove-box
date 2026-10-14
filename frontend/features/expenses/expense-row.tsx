@@ -73,7 +73,7 @@ export function ExpenseRow({
       spacing={1}
       sx={{
         alignItems: "center",
-        mx: 1,
+        mx: { xs: 0, sm: 1 },
         px: 1,
         py: 1.5,
         borderRadius: "10px",
@@ -113,7 +113,12 @@ export function ExpenseRow({
                 color: "text.secondary",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                // Phones have room for only a few characters on one line, so
+                // the subtitle gets two lines there.
+                whiteSpace: { xs: "normal", sm: "nowrap" },
+                display: { xs: "-webkit-box", sm: "block" },
+                WebkitLineClamp: { xs: 2 },
+                WebkitBoxOrient: "vertical",
               }}
             >
               {subtitle}

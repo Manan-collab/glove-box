@@ -50,8 +50,8 @@ export default function FriendGaragePage() {
         <Avatar src={user.avatarUrl ?? undefined} sx={{ width: 64, height: 64, fontSize: 22 }}>
           {initial}
         </Avatar>
-        <Box>
-          <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: { xs: 20, sm: 24 }, fontWeight: 800, overflowWrap: "anywhere" }}>
             {user.displayName ?? user.username}&apos;s Garage
           </Typography>
           <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>

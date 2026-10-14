@@ -13,7 +13,7 @@ import { useExpenses } from "@/hooks/use-expenses";
 import type { AnalyticsPeriod, CarComparison, MonthlySpend } from "@/lib/analytics-api";
 import type { Car } from "@/lib/cars-api";
 import { getHealthScore } from "@/lib/car-facts";
-import { formatCurrency } from "@/lib/format-currency";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/format-currency";
 
 const PERIOD_OPTIONS: { value: AnalyticsPeriod; label: string }[] = [
   { value: "ALL", label: "All time" },
@@ -141,7 +141,7 @@ export default function AnalyticsPage() {
           size="small"
           value={carFilter}
           onChange={(e) => setCarFilter(e.target.value)}
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: 180, flex: { xs: "1 1 180px", sm: "0 0 auto" } }}
         >
           <MenuItem value="ALL">All cars</MenuItem>
           {cars?.data.map((car) => (
@@ -155,7 +155,7 @@ export default function AnalyticsPage() {
           size="small"
           value={period}
           onChange={(e) => setPeriod(e.target.value as AnalyticsPeriod)}
-          sx={{ minWidth: 160 }}
+          sx={{ minWidth: 160, flex: { xs: "1 1 160px", sm: "0 0 auto" } }}
         >
           {PERIOD_OPTIONS.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -191,6 +191,7 @@ export default function AnalyticsPage() {
           <BarChart
             height={260}
             xAxis={[{ data: active.monthlySpend.map((m) => m.month), scaleType: "band" }]}
+            yAxis={[{ valueFormatter: (v: number) => formatCurrencyCompact(v), width: 52 }]}
             series={[
               {
                 data: active.monthlySpend.map((m) => m.total),
@@ -217,7 +218,16 @@ export default function AnalyticsPage() {
       {!isSingleCar && garageData.carComparison.length > 1 && (
         <Panel title="Which car is costing you more?">
           <Box sx={{ overflowX: "auto" }}>
-            <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+            <Box
+              component="table"
+              sx={{
+                width: "100%",
+                minWidth: 560,
+                borderCollapse: "collapse",
+                fontSize: 13.5,
+                "& th, & td": { pr: 2, "&:last-of-type": { pr: 0 } },
+              }}
+            >
               <Box component="thead">
                 <Box component="tr">
                   {["Car", "₹/km", "Total spent", "Badge"].map((h) => (
@@ -256,7 +266,7 @@ export default function AnalyticsPage() {
                         {formatCurrency(car.totalSpend)}
                       </Box>
                       <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                        <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                        <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
                           {badges?.mostExpensive === car.carId && (
                             <Chip size="small" color="error" label="Most expensive" />
                           )}

@@ -22,7 +22,9 @@ interface QuickAddExpenseDialogProps {
 
 export function QuickAddExpenseDialog({ open, onClose }: QuickAddExpenseDialogProps) {
   const { data: cars } = useCars();
-  const [carId, setCarId] = useState("");
+  const [pickedCarId, setCarId] = useState("");
+  // With a single car there's nothing to pick, so go straight to the form.
+  const carId = pickedCarId || (cars?.data.length === 1 ? cars.data[0].id : "");
   const createExpense = useCreateExpense(carId);
   const updateCar = useUpdateCar(carId);
 

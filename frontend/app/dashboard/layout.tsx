@@ -6,6 +6,7 @@ import {
   Button,
   CircularProgress,
   Divider,
+  Fab,
   ListItemIcon,
   Menu,
   MenuItem,
@@ -21,6 +22,26 @@ import { useLogout, useMe } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api-client";
 
 const SIDEBAR_WIDTH = 224;
+// Below `md` the sidebar is replaced by a fixed bottom nav plus a floating
+// "+" button for adding an expense.
+const BOTTOM_NAV_HEIGHT = 64;
+const SAFE_AREA_BOTTOM = "env(safe-area-inset-bottom, 0px)";
+
+const NAV_ITEMS = [
+  { href: "/dashboard", icon: "🏠", label: "Garage", isActive: (path: string) => path === "/dashboard" },
+  {
+    href: "/dashboard/analytics",
+    icon: "📊",
+    label: "Analytics",
+    isActive: (path: string) => path === "/dashboard/analytics",
+  },
+  {
+    href: "/dashboard/friends",
+    icon: "👥",
+    label: "Friends",
+    isActive: (path: string) => path.startsWith("/dashboard/friends"),
+  },
+];
 
 export default function DashboardLayout({
   children,
@@ -109,26 +130,22 @@ export default function DashboardLayout({
           GLOVE<Box component="span" sx={{ color: "primary.main" }}>BOX</Box>
         </Typography>
         <Stack spacing={0.5} sx={{ flex: 1 }}>
-          <NavItem href="/dashboard" icon="🏠" label="Garage" active={pathname === "/dashboard"} />
-          <NavItem
-            href="/dashboard/analytics"
-            icon="📊"
-            label="Analytics"
-            active={pathname === "/dashboard/analytics"}
-          />
-          <NavItem
-            href="/dashboard/friends"
-            icon="👥"
-            label="Friends"
-            active={pathname.startsWith("/dashboard/friends")}
-          />
+          {NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              active={item.isActive(pathname)}
+            />
+          ))}
         </Stack>
 
         <Button variant="contained" fullWidth onClick={() => setQuickAddOpen(true)}>
           + Add Expense
         </Button>
-        <QuickAddExpenseDialog open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
       </Box>
+      <QuickAddExpenseDialog open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
 
       <Box
         sx={{
@@ -156,7 +173,23 @@ export default function DashboardLayout({
             height: 60,
           })}
         >
-          <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: "text.secondary" }}>
+          <Typography
+            component={Link}
+            href="/dashboard"
+            sx={{
+              display: { xs: "block", md: "none" },
+              fontWeight: 800,
+              fontSize: 17,
+              color: "text.primary",
+              textDecoration: "none",
+            }}
+          >
+            GLOVE<Box component="span" sx={{ color: "primary.main" }}>BOX</Box>
+          </Typography>
+          <Typography
+            noWrap
+            sx={{ display: { xs: "none", md: "block" }, fontSize: 13.5, fontWeight: 600, color: "text.secondary" }}
+          >
             {user.displayName ?? user.username}&apos;s Garage
           </Typography>
           <Box>
@@ -164,6 +197,7 @@ export default function DashboardLayout({
               direction="row"
               spacing={1.25}
               onClick={(e) => setAnchorEl(e.currentTarget)}
+              aria-label="Account menu"
               sx={{
                 alignItems: "center",
                 cursor: "pointer",
@@ -179,7 +213,10 @@ export default function DashboardLayout({
               >
                 {initial}
               </Avatar>
-              <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>
+              <Typography
+                noWrap
+                sx={{ display: { xs: "none", sm: "block" }, maxWidth: 200, fontSize: 13.5, fontWeight: 600 }}
+              >
                 {user.displayName ?? user.username}
               </Typography>
             </Stack>
@@ -223,6 +260,7 @@ export default function DashboardLayout({
           component="main"
           sx={{
             flex: 1,
+            pb: { xs: `calc(${BOTTOM_NAV_HEIGHT + 72}px + ${SAFE_AREA_BOTTOM})`, md: 0 },
             background:
               "linear-gradient(180deg, color-mix(in srgb, var(--mui-palette-primary-main) 6%, var(--mui-palette-background-default)) 0%, var(--mui-palette-background-default) 480px)",
           }}
@@ -230,7 +268,98 @@ export default function DashboardLayout({
           <Box sx={{ p: { xs: 2, sm: 3, md: 5 }, maxWidth: 1220, mx: "auto" }}>{children}</Box>
         </Box>
       </Box>
+
+      <Fab
+        color="primary"
+        aria-label="Add expense"
+        onClick={() => setQuickAddOpen(true)}
+        sx={{
+          display: { xs: "flex", md: "none" },
+          position: "fixed",
+          right: 16,
+          bottom: `calc(${BOTTOM_NAV_HEIGHT + 16}px + ${SAFE_AREA_BOTTOM})`,
+          fontSize: 28,
+          fontWeight: 400,
+        }}
+      >
+        +
+      </Fab>
+
+      <Box
+        component="nav"
+        aria-label="Main"
+        sx={(theme) => ({
+          display: { xs: "flex", md: "none" },
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 30,
+          height: `calc(${BOTTOM_NAV_HEIGHT}px + ${SAFE_AREA_BOTTOM})`,
+          pb: SAFE_AREA_BOTTOM,
+          bgcolor: "background.paper",
+          ...theme.applyStyles("light", { backgroundColor: theme.palette.background.default }),
+          borderTop: "1px solid",
+          borderColor: "divider",
+        })}
+      >
+        {NAV_ITEMS.map((item) => (
+          <MobileNavItem
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            label={item.label}
+            active={item.isActive(pathname)}
+          />
+        ))}
+      </Box>
     </Box>
+  );
+}
+
+function MobileNavItem({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Stack
+      component={Link}
+      href={href}
+      aria-current={active ? "page" : undefined}
+      spacing={0.25}
+      sx={{
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        textDecoration: "none",
+        color: active ? "primary.main" : "text.secondary",
+        fontWeight: active ? 700 : 500,
+        fontSize: 12,
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      <Box
+        component="span"
+        sx={{
+          fontSize: 18,
+          lineHeight: 1,
+          px: 2,
+          py: 0.5,
+          borderRadius: "999px",
+          bgcolor: active ? "action.selected" : "transparent",
+        }}
+      >
+        {icon}
+      </Box>
+      <span>{label}</span>
+    </Stack>
   );
 }
 

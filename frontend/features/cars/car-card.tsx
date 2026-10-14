@@ -20,11 +20,15 @@ export function CarCard({ car }: { car: Car }) {
         overflow: "hidden",
         border: "none",
         transition: "box-shadow .2s, transform .2s",
-        "&:hover": {
-          boxShadow: "0 14px 32px -18px rgba(20,20,30,0.4)",
-          transform: "translateY(-3px)",
+        // Touch screens fire :hover on tap and leave it stuck, so the lift and
+        // the spec overlay only apply where a real pointer can hover.
+        "@media (hover: hover)": {
+          "&:hover": {
+            boxShadow: "0 14px 32px -18px rgba(20,20,30,0.4)",
+            transform: "translateY(-3px)",
+          },
+          "&:hover .car-hover-reveal": { opacity: 1, transform: "translateY(0)" },
         },
-        "&:hover .car-hover-reveal": { opacity: 1, transform: "translateY(0)" },
       }}
     >
       <Box
@@ -90,7 +94,8 @@ export function CarCard({ car }: { car: Car }) {
           bgcolor: "rgba(10,12,20,0.92)",
           color: "#fff",
           p: 2.5,
-          display: { xs: "none", sm: "flex" },
+          display: "flex",
+          "@media (hover: none)": { display: "none" },
           flexDirection: "column",
           justifyContent: "center",
           gap: 1.25,

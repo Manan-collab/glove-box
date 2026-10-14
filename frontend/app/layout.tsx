@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -19,6 +19,18 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Glovebox",
   description: "Your garage, tracked.",
+};
+
+// viewportFit "cover" lets the mobile bottom nav extend under the iPhone home
+// indicator and pad itself with env(safe-area-inset-bottom).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#EBEEF8" },
+    { media: "(prefers-color-scheme: dark)", color: "#14161D" },
+  ],
 };
 
 export default function RootLayout({

@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import type { ExpenseFormValues } from "@/lib/expenses-api";
@@ -53,6 +54,7 @@ export function ExpenseFormDialog({
   defaultValues,
   onInsuranceExpiryDateSet,
 }: ExpenseFormDialogProps) {
+  const isPhone = useIsPhone();
   const {
     control,
     handleSubmit,
@@ -105,6 +107,7 @@ export function ExpenseFormDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isPhone}
       slotProps={{ transition: { onExited: () => reset() } }}
     >
       <DialogTitle>{title}</DialogTitle>
@@ -120,7 +123,7 @@ export function ExpenseFormDialog({
               {EXPENSE_CATEGORIES.map((cat) => {
                 const selected = field.value === cat.value;
                 return (
-                  <Grid key={cat.value} size={3}>
+                  <Grid key={cat.value} size={{ xs: 4, sm: 3 }}>
                     <Box
                       onClick={() => field.onChange(cat.value)}
                       sx={{
@@ -154,7 +157,7 @@ export function ExpenseFormDialog({
         />
 
         <Grid container spacing={2}>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="amount"
               control={control}
@@ -170,7 +173,7 @@ export function ExpenseFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="expenseDate"
               control={control}
@@ -187,7 +190,7 @@ export function ExpenseFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="odometerKm"
               control={control}
@@ -207,7 +210,7 @@ export function ExpenseFormDialog({
 
           {category === "FUEL" && (
             <>
-              <Grid size={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="litres"
                   control={control}
@@ -222,7 +225,7 @@ export function ExpenseFormDialog({
                   )}
                 />
               </Grid>
-              <Grid size={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="fuelPricePerLitre"
                   control={control}
@@ -237,7 +240,7 @@ export function ExpenseFormDialog({
                   )}
                 />
               </Grid>
-              <Grid size={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   name="fuelStation"
                   control={control}
@@ -250,7 +253,7 @@ export function ExpenseFormDialog({
           )}
 
           {(category === "SERVICE" || category === "REPAIR") && (
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="workshopName"
                 control={control}
@@ -261,7 +264,7 @@ export function ExpenseFormDialog({
             </Grid>
           )}
           {category === "SERVICE" && (
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="workPerformed"
                 control={control}
@@ -272,7 +275,7 @@ export function ExpenseFormDialog({
             </Grid>
           )}
           {category === "REPAIR" && (
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="whatBroke"
                 control={control}
@@ -285,7 +288,7 @@ export function ExpenseFormDialog({
 
           {category === "TYRES" && (
             <>
-              <Grid size={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   name="tyreBrand"
                   control={control}
@@ -294,7 +297,7 @@ export function ExpenseFormDialog({
                   )}
                 />
               </Grid>
-              <Grid size={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Controller
                   name="tyreSize"
                   control={control}
@@ -307,7 +310,7 @@ export function ExpenseFormDialog({
           )}
 
           {category === "INSURANCE" && (
-            <Grid size={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="insuranceExpiryDate"
                 control={control}

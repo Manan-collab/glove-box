@@ -11,6 +11,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useRef, useState } from "react";
 import {
   useDownloadTemplate,
@@ -25,6 +26,7 @@ interface DataIoDialogProps {
 }
 
 export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
+  const isPhone = useIsPhone();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const downloadTemplate = useDownloadTemplate();
@@ -48,6 +50,7 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isPhone}
       slotProps={{ transition: { onExited: () => setResult(null) } }}
     >
       <DialogTitle>Import / Export</DialogTitle>
@@ -58,7 +61,7 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
             spreadsheet — one sheet per car. New to this? Start from the template.
           </Typography>
 
-          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+          <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button
               variant="outlined"
               loading={exportWorkbook.isPending}

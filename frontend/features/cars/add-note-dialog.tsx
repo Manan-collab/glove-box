@@ -9,6 +9,7 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useState } from "react";
 
 interface AddNoteDialogProps {
@@ -26,6 +27,7 @@ export function AddNoteDialog({
   isSubmitting,
   error,
 }: AddNoteDialogProps) {
+  const isPhone = useIsPhone();
   const [body, setBody] = useState("");
 
   return (
@@ -34,6 +36,7 @@ export function AddNoteDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isPhone}
       slotProps={{ transition: { onExited: () => setBody("") } }}
     >
       <DialogTitle>Add a note</DialogTitle>

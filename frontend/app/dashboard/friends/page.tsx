@@ -105,10 +105,10 @@ export default function FriendsPage() {
                 <Stack
                   key={req.id}
                   direction="row"
-                  sx={{ alignItems: "center", justifyContent: "space-between" }}
+                  sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1.5 }}
                 >
                   <ProfileRow profile={req.user} />
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                     <Button
                       size="small"
                       variant="contained"
@@ -143,10 +143,10 @@ export default function FriendsPage() {
                 <Stack
                   key={req.id}
                   direction="row"
-                  sx={{ alignItems: "center", justifyContent: "space-between" }}
+                  sx={{ alignItems: "center", justifyContent: "space-between", gap: 1.5 }}
                 >
                   <ProfileRow profile={req.user} />
-                  <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                  <Typography sx={{ fontSize: 12.5, color: "text.secondary", flexShrink: 0 }}>
                     Pending
                   </Typography>
                 </Stack>
@@ -170,12 +170,13 @@ export default function FriendsPage() {
                 <Panel>
                   <Stack
                     direction="row"
-                    sx={{ alignItems: "center", justifyContent: "space-between" }}
+                    sx={{ alignItems: "center", justifyContent: "space-between", gap: 1.5 }}
                   >
                     <ProfileRow profile={friend} />
                     <Button
                       size="small"
                       variant="contained"
+                      sx={{ flexShrink: 0 }}
                       component={Link}
                       href={`/dashboard/friends/${friend.username}`}
                     >
@@ -195,15 +196,15 @@ export default function FriendsPage() {
 function ProfileRow({ profile }: { profile: PublicProfile }) {
   const initial = (profile.displayName ?? profile.username).charAt(0).toUpperCase();
   return (
-    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0 }}>
       <Avatar src={profile.avatarUrl ?? undefined} sx={{ width: 40, height: 40 }}>
         {initial}
       </Avatar>
-      <Box>
-        <Typography sx={{ fontSize: 14.5, fontWeight: 700 }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: 14.5, fontWeight: 700 }}>
           {profile.displayName ?? profile.username}
         </Typography>
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+        <Typography noWrap sx={{ fontSize: 12.5, color: "text.secondary" }}>
           @{profile.username}
         </Typography>
       </Box>

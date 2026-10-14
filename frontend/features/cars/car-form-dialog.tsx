@@ -13,6 +13,7 @@ import {
   MenuItem,
   TextField,
 } from "@mui/material";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
@@ -59,6 +60,7 @@ export function CarFormDialog({
   title,
   defaultValues,
 }: CarFormDialogProps) {
+  const isPhone = useIsPhone();
   const {
     control,
     handleSubmit,
@@ -125,12 +127,13 @@ export function CarFormDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isPhone}
       slotProps={{ transition: { onExited: () => reset() } }}
     >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="make"
               control={control}
@@ -154,7 +157,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="model"
               control={control}
@@ -184,7 +187,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="year"
               control={control}
@@ -200,7 +203,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="variant"
               control={control}
@@ -224,7 +227,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="fuelType"
               control={control}
@@ -246,7 +249,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="transmission"
               control={control}
@@ -268,7 +271,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="bodyType"
               control={control}
@@ -290,7 +293,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="engine"
               control={control}
@@ -306,7 +309,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="powerBhp"
               control={control}
@@ -323,7 +326,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="odometerKm"
               control={control}
@@ -339,7 +342,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="vin"
               control={control}
@@ -355,7 +358,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="usageTag"
               control={control}
@@ -378,7 +381,7 @@ export function CarFormDialog({
               )}
             />
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="insuranceExpiryDate"
               control={control}

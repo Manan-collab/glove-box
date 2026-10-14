@@ -62,6 +62,23 @@ export const theme = createTheme({
         root: { fontWeight: 600 },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        // MUI's default 32px dialog margin leaves ~296px of width on a 360px
+        // phone. Halve it there; full-screen dialogs keep their zero margin.
+        paper: ({ theme }) => ({
+          [theme.breakpoints.down("sm")]: {
+            "&:not(.MuiDialog-paperFullScreen)": {
+              margin: 16,
+              maxHeight: "calc(100% - 32px)",
+            },
+            "&.MuiDialog-paperFullWidth:not(.MuiDialog-paperFullScreen)": {
+              width: "calc(100% - 32px)",
+            },
+          },
+        }),
+      },
+    },
     MuiDialogContent: {
       styleOverrides: {
         root: { padding: "20px 24px" },
@@ -71,7 +88,14 @@ export const theme = createTheme({
       styleOverrides: {
         // Matches DialogContent's 24px horizontal padding so Cancel/Save
         // line up with the form fields above instead of hugging the edge.
-        root: { padding: "16px 24px 24px" },
+        root: {
+          padding: "16px 24px 24px",
+          // Full-screen (phone) dialogs reach the bottom edge, so keep the
+          // buttons clear of the iPhone home indicator.
+          ".MuiDialog-paperFullScreen &": {
+            paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+          },
+        },
       },
     },
   },

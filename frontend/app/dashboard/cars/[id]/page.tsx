@@ -122,14 +122,14 @@ export default function CarDetailPage() {
             background: carGradient(car.id),
           }}
         />
-        <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
+        <Box sx={{ flex: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}>
+          <Typography sx={{ fontSize: { xs: 21, sm: 24 }, fontWeight: 800 }}>
             {car.make} {car.model}
           </Typography>
           <Typography sx={{ color: "text.secondary", fontSize: 13.5, mt: 0.5 }}>
             {car.variant} · {car.year} · {car.engine} · {car.transmission}
           </Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1, mt: 1.5 }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 1.5 }}>
             {car.usageTag && <Chip size="small" label={car.usageTag} />}
             <Chip size="small" label={ownedLabel} />
             {health.score != null && (
@@ -173,7 +173,7 @@ export default function CarDetailPage() {
               }
             />
           </Stack>
-          <Stack direction="row" spacing={1.25} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 2, flexWrap: "wrap" }}>
             <Button
               variant="contained"
               onClick={() => {
@@ -558,7 +558,7 @@ function NoteRow({
         📝
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 13.5 }}>{note.body}</Typography>
+        <Typography sx={{ fontSize: 13.5, overflowWrap: "anywhere" }}>{note.body}</Typography>
         <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{timeAgo(note.createdAt)}</Typography>
       </Box>
       <Button

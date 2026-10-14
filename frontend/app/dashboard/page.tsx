@@ -106,7 +106,10 @@ export default function DashboardPage() {
       {cars && cars.data.length > 0 && (
         <Stack spacing={1.5}>
           <Typography sx={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.05em", color: "text.secondary" }}>
-            YOUR CARS — HOVER FOR A QUICK LOOK
+            YOUR CARS
+            <Box component="span" sx={{ "@media (hover: none)": { display: "none" } }}>
+              {" "}— HOVER FOR A QUICK LOOK
+            </Box>
           </Typography>
           <Grid container spacing={2}>
             {cars.data.map((car) => (
