@@ -104,7 +104,8 @@ export function ExpenseFormDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      // Closing mid-save would hide the outcome, including an error.
+      onClose={isSubmitting ? undefined : onClose}
       maxWidth="sm"
       fullWidth
       fullScreen={isPhone}
@@ -144,7 +145,7 @@ export function ExpenseFormDialog({
                         gap: 0.5,
                       }}
                     >
-                      <Box component="span" sx={{ fontSize: 19 }}>
+                      <Box component="span" aria-hidden="true" sx={{ fontSize: 19 }}>
                         {cat.icon}
                       </Box>
                       {cat.label}
@@ -347,7 +348,9 @@ export function ExpenseFormDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
         <Button variant="contained" onClick={submit} loading={isSubmitting}>
           Save Expense
         </Button>

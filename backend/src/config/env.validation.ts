@@ -10,6 +10,10 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   FRONTEND_URL: z.url().default('http://localhost:3001'),
   GOOGLE_CLIENT_ID: z.string().min(1),
+  // Shared with the frontend's proxy (frontend/proxy.ts). Optional so local
+  // dev works without it; unset means every client is rate-limited by the IP
+  // that connects to us, which behind the proxy is Vercel's.
+  API_PROXY_SECRET: z.string().min(32).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

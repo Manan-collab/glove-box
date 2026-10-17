@@ -1,7 +1,7 @@
 "use client";
 
 import { GoogleLogin } from "@react-oauth/google";
-import { Alert, Box, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Link, Paper, Stack, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useGoogleLogin, useMe } from "@/hooks/use-auth";
@@ -35,7 +35,7 @@ export default function LoginPage() {
           bgcolor: "#14161D",
         }}
       >
-        <CircularProgress sx={{ color: "#5B8CFF" }} />
+        <CircularProgress aria-label="Checking your session" sx={{ color: "#5B8CFF" }} />
       </Box>
     );
   }
@@ -63,7 +63,12 @@ export default function LoginPage() {
         }}
       >
         <Stack spacing={3} sx={{ alignItems: "center", textAlign: "center" }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 21, letterSpacing: 0.5 }}>
+          <Typography
+            component="a"
+            href="/"
+            aria-label="Glovebox home"
+            sx={{ fontWeight: 800, fontSize: 21, letterSpacing: 0.5, textDecoration: "none" }}
+          >
             <Box component="span" sx={{ color: "#F2F3F7" }}>
               GLOVE
             </Box>
@@ -73,7 +78,7 @@ export default function LoginPage() {
           </Typography>
 
           <Stack spacing={1}>
-            <Typography sx={{ fontWeight: 800, fontSize: 20, color: "#F2F3F7" }}>
+            <Typography component="h1" sx={{ fontWeight: 800, fontSize: 20, color: "#F2F3F7" }}>
               Your garage, signed in.
             </Typography>
             <Typography sx={{ fontSize: 13.5, color: "#A6A9B6" }}>
@@ -96,7 +101,7 @@ export default function LoginPage() {
           >
             {googleLogin.isPending ? (
               <Stack spacing={1.5} sx={{ alignItems: "center", py: 1.5 }}>
-                <CircularProgress size={28} sx={{ color: "#5B8CFF" }} />
+                <CircularProgress size={28} aria-label="Signing in" sx={{ color: "#5B8CFF" }} />
                 <Typography sx={{ fontSize: 13, color: "#A6A9B6" }}>Signing in…</Typography>
               </Stack>
             ) : (
@@ -129,7 +134,11 @@ export default function LoginPage() {
           )}
 
           <Typography sx={{ fontSize: 13, color: "#6E7180" }}>
-            By continuing, you agree to Glovebox&apos;s Terms &amp; Privacy Policy.
+            By continuing, you agree to Glovebox&apos;s{" "}
+            <Link href="/privacy" sx={{ color: "#A6A9B6" }}>
+              Privacy Policy
+            </Link>
+            .
           </Typography>
         </Stack>
       </Paper>

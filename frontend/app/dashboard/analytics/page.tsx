@@ -1,12 +1,13 @@
 "use client";
 
-import { Alert, Box, Button, Chip, CircularProgress, Grid, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Grid, MenuItem, Skeleton, Stack, TextField, Typography } from "@mui/material";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { useState } from "react";
 import { CategoryBreakdownBars, Panel, StatCard } from "@/features/analytics/analytics-ui";
 import { HealthGauge } from "@/features/analytics/health-gauge";
 import { YearOverYearPanel } from "@/features/analytics/year-over-year-panel";
 import { QuickAddExpenseDialog } from "@/features/expenses/quick-add-expense-dialog";
+import { QueryErrorState } from "@/features/shell/query-states";
 import { useCarAnalytics, useGarageAnalytics } from "@/hooks/use-analytics";
 import { useCar, useCars } from "@/hooks/use-cars";
 import { useExpenses } from "@/hooks/use-expenses";
@@ -58,14 +59,17 @@ function computeBadges(carComparison: CarComparison[], cars: Car[]): Badges | nu
   };
 }
 
-function mostExpensiveMonth(monthlySpend: MonthlySpend[]) {
-  if (monthlySpend.length === 0) return null;
-  const peak = monthlySpend.reduce((a, b) => (b.total > a.total ? b : a));
-  const label = new Date(`${peak.month}-01`).toLocaleDateString(undefined, {
+function formatMonth(month: string) {
+  return new Date(`${month}-01`).toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
   });
-  return { ...peak, label };
+}
+
+function mostExpensiveMonth(monthlySpend: MonthlySpend[]) {
+  if (monthlySpend.length === 0) return null;
+  const peak = monthlySpend.reduce((a, b) => (b.total > a.total ? b : a));
+  return { ...peak, label: formatMonth(peak.month) };
 }
 
 export default function AnalyticsPage() {
@@ -75,11 +79,10 @@ export default function AnalyticsPage() {
 
   const { data: cars, isLoading: carsLoading } = useCars();
   const isSingleCar = carFilter !== "ALL";
-  const { data: garageData, isLoading: garageLoading, isError: garageError } = useGarageAnalytics(period);
-  const { data: carAnalyticsData, isLoading: carAnalyticsLoading } = useCarAnalytics(
-    isSingleCar ? carFilter : "",
-    period,
-  );
+  const garageQuery = useGarageAnalytics(period);
+  const { data: garageData, isLoading: garageLoading } = garageQuery;
+  const carAnalyticsQuery = useCarAnalytics(isSingleCar ? carFilter : "", period);
+  const { data: carAnalyticsData, isLoading: carAnalyticsLoading } = carAnalyticsQuery;
   const { data: selectedCar, isLoading: selectedCarLoading } = useCar(isSingleCar ? carFilter : "");
   const { data: selectedCarExpensesPage, isLoading: selectedCarExpensesLoading } = useExpenses(
     isSingleCar ? carFilter : "",
@@ -90,15 +93,20 @@ export default function AnalyticsPage() {
     (isSingleCar && (carAnalyticsLoading || selectedCarLoading || selectedCarExpensesLoading));
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <AnalyticsSkeleton />;
   }
 
-  if (garageError || !garageData) {
-    return <Alert severity="error">Couldn&apos;t load analytics.</Alert>;
+  if (!garageData) {
+    return (
+      <Stack spacing={2}>
+        <Typography sx={{ fontSize: 27, fontWeight: 800 }}>Analytics</Typography>
+        <QueryErrorState
+          message="Couldn't load analytics."
+          onRetry={() => garageQuery.refetch()}
+          retrying={garageQuery.isFetching}
+        />
+      </Stack>
+    );
   }
 
   if (garageData.totalCars === 0) {
@@ -110,16 +118,28 @@ export default function AnalyticsPage() {
     );
   }
 
+  // A failed single-car query must not fall back to the garage-wide numbers —
+  // they'd be shown under that car's name.
+  const singleCarFailed = isSingleCar && !carAnalyticsData;
   const active = isSingleCar && carAnalyticsData ? carAnalyticsData : garageData;
   const totalSpend = active.totalSpend;
   const trackedKm = isSingleCar ? carAnalyticsData?.trackedKm ?? null : garageData.totalTrackedKm;
   const peak = mostExpensiveMonth(active.monthlySpend);
   const badges =
     !isSingleCar && cars ? computeBadges(garageData.carComparison, cars.data) : null;
+  // Without the expense list (failed to load) the score would be computed
+  // from nothing, so the panel is skipped instead.
   const health =
-    isSingleCar && selectedCar
-      ? getHealthScore(selectedCar, selectedCarExpensesPage?.data ?? [])
+    isSingleCar && selectedCar && selectedCarExpensesPage
+      ? getHealthScore(selectedCar, selectedCarExpensesPage.data)
       : null;
+  const months = active.monthlySpend;
+  const chartSummary =
+    months.length > 0
+      ? `Monthly spending bar chart, ${formatMonth(months[0].month)} to ${formatMonth(
+          months[months.length - 1].month,
+        )}.${peak ? ` Highest: ${peak.label} at ${formatCurrency(peak.total)}.` : ""}`
+      : "";
 
   return (
     <Stack spacing={3}>
@@ -165,128 +185,167 @@ export default function AnalyticsPage() {
         </TextField>
       </Stack>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <StatCard value={formatCurrency(totalSpend)} label="Total spend" accent />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <StatCard value={trackedKm != null ? `${trackedKm.toLocaleString()} km` : "—"} label="Tracked" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <StatCard
-            value={peak ? formatCurrency(peak.total) : "—"}
-            label={peak ? `Most expensive: ${peak.label}` : "Most expensive month"}
-          />
-        </Grid>
-      </Grid>
+      {singleCarFailed ? (
+        <QueryErrorState
+          message="Couldn't load analytics for this car."
+          onRetry={() => carAnalyticsQuery.refetch()}
+          retrying={carAnalyticsQuery.isFetching}
+        />
+      ) : (
+        <>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard value={formatCurrency(totalSpend)} label="Total spend" accent />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard value={trackedKm != null ? `${trackedKm.toLocaleString()} km` : "—"} label="Tracked" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatCard
+                value={peak ? formatCurrency(peak.total) : "—"}
+                label={peak ? `Most expensive: ${peak.label}` : "Most expensive month"}
+              />
+            </Grid>
+          </Grid>
 
-      {isSingleCar && health && (
-        <Panel title="Health score">
-          <HealthGauge health={health} />
-        </Panel>
-      )}
+          {isSingleCar && health && (
+            <Panel title="Health score">
+              <HealthGauge health={health} />
+            </Panel>
+          )}
 
-      {active.monthlySpend.length > 0 && (
-        <Panel title="Monthly spending">
-          <BarChart
-            height={260}
-            xAxis={[{ data: active.monthlySpend.map((m) => m.month), scaleType: "band" }]}
-            yAxis={[{ valueFormatter: (v: number) => formatCurrencyCompact(v), width: 52 }]}
-            series={[
-              {
-                data: active.monthlySpend.map((m) => m.total),
-                color: "var(--mui-palette-primary-main)",
-                valueFormatter: (v) => (v != null ? formatCurrency(v) : ""),
-              },
-            ]}
-          />
-        </Panel>
-      )}
+          {active.monthlySpend.length > 0 && (
+            <Panel title="Monthly spending">
+              {/* The SVG's axis text isn't meaningful read out of context, so
+                  screen readers get a one-line summary instead. */}
+              <Box role="img" aria-label={chartSummary}>
+                <BarChart
+                  height={260}
+                  xAxis={[{ data: active.monthlySpend.map((m) => m.month), scaleType: "band" }]}
+                  yAxis={[{ valueFormatter: (v: number) => formatCurrencyCompact(v), width: 52 }]}
+                  series={[
+                    {
+                      data: active.monthlySpend.map((m) => m.total),
+                      color: "var(--mui-palette-primary-main)",
+                      valueFormatter: (v) => (v != null ? formatCurrency(v) : ""),
+                    },
+                  ]}
+                />
+              </Box>
+            </Panel>
+          )}
 
-      {active.spendByCategory.length > 0 && (
-        <Panel title={isSingleCar ? "By category" : "By category — all cars"}>
-          <CategoryBreakdownBars rows={active.spendByCategory} />
-        </Panel>
-      )}
+          {active.spendByCategory.length > 0 && (
+            <Panel title={isSingleCar ? "By category" : "By category — all cars"}>
+              <CategoryBreakdownBars rows={active.spendByCategory} />
+            </Panel>
+          )}
 
-      {(active.yearOverYear.totalThisYear > 0 || active.yearOverYear.totalLastYear > 0) && (
-        <Panel title={`${active.yearOverYear.lastYearLabel} vs ${active.yearOverYear.thisYearLabel}`}>
-          <YearOverYearPanel data={active.yearOverYear} />
-        </Panel>
-      )}
+          {(active.yearOverYear.totalThisYear > 0 || active.yearOverYear.totalLastYear > 0) && (
+            <Panel title={`${active.yearOverYear.lastYearLabel} vs ${active.yearOverYear.thisYearLabel}`}>
+              <YearOverYearPanel data={active.yearOverYear} />
+            </Panel>
+          )}
 
-      {!isSingleCar && garageData.carComparison.length > 1 && (
-        <Panel title="Which car is costing you more?">
-          <Box sx={{ overflowX: "auto" }}>
-            <Box
-              component="table"
-              sx={{
-                width: "100%",
-                minWidth: 560,
-                borderCollapse: "collapse",
-                fontSize: 13.5,
-                "& th, & td": { pr: 2, "&:last-of-type": { pr: 0 } },
-              }}
-            >
-              <Box component="thead">
-                <Box component="tr">
-                  {["Car", "₹/km", "Total spent", "Badge"].map((h) => (
-                    <Box
-                      component="th"
-                      key={h}
-                      sx={{
-                        textAlign: "left",
-                        fontSize: 11,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.03em",
-                        color: "text.secondary",
-                        py: 1.25,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      {h}
+          {!isSingleCar && garageData.carComparison.length > 1 && (
+            <Panel title="Which car is costing you more?">
+              <Box sx={{ overflowX: "auto" }}>
+                <Box
+                  component="table"
+                  sx={{
+                    width: "100%",
+                    minWidth: 560,
+                    borderCollapse: "collapse",
+                    fontSize: 13.5,
+                    "& th, & td": { pr: 2, "&:last-of-type": { pr: 0 } },
+                  }}
+                >
+                  <Box component="thead">
+                    <Box component="tr">
+                      {["Car", "₹/km", "Total spent", "Badge"].map((h) => (
+                        <Box
+                          component="th"
+                          key={h}
+                          sx={{
+                            textAlign: "left",
+                            fontSize: 11,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                            color: "text.secondary",
+                            py: 1.25,
+                            borderBottom: "1px solid",
+                            borderColor: "divider",
+                          }}
+                        >
+                          {h}
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
+                  </Box>
+                  <Box component="tbody">
+                    {garageData.carComparison
+                      .slice()
+                      .sort((a, b) => b.totalSpend - a.totalSpend)
+                      .map((car) => (
+                        <Box component="tr" key={car.carId}>
+                          <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+                            {car.year} {car.make} {car.model}
+                          </Box>
+                          <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+                            {car.costPerKm != null ? `₹${car.costPerKm.toFixed(2)}` : "—"}
+                          </Box>
+                          <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+                            {formatCurrency(car.totalSpend)}
+                          </Box>
+                          <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+                            <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
+                              {badges?.mostExpensive === car.carId && (
+                                <Chip size="small" color="error" label="Most expensive" />
+                              )}
+                              {badges?.bestFuelEconomy === car.carId && (
+                                <Chip size="small" color="success" label="Best fuel economy" />
+                              )}
+                              {badges?.mostReliable === car.carId && (
+                                <Chip size="small" color="success" label="Most reliable" />
+                              )}
+                            </Stack>
+                          </Box>
+                        </Box>
+                      ))}
+                  </Box>
                 </Box>
               </Box>
-              <Box component="tbody">
-                {garageData.carComparison
-                  .slice()
-                  .sort((a, b) => b.totalSpend - a.totalSpend)
-                  .map((car) => (
-                    <Box component="tr" key={car.carId}>
-                      <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                        {car.year} {car.make} {car.model}
-                      </Box>
-                      <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                        {car.costPerKm != null ? `₹${car.costPerKm.toFixed(2)}` : "—"}
-                      </Box>
-                      <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                        {formatCurrency(car.totalSpend)}
-                      </Box>
-                      <Box component="td" sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                        <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
-                          {badges?.mostExpensive === car.carId && (
-                            <Chip size="small" color="error" label="Most expensive" />
-                          )}
-                          {badges?.bestFuelEconomy === car.carId && (
-                            <Chip size="small" color="success" label="Best fuel economy" />
-                          )}
-                          {badges?.mostReliable === car.carId && (
-                            <Chip size="small" color="success" label="Most reliable" />
-                          )}
-                        </Stack>
-                      </Box>
-                    </Box>
-                  ))}
-              </Box>
-            </Box>
-          </Box>
-        </Panel>
+            </Panel>
+          )}
+        </>
       )}
 
       <QuickAddExpenseDialog open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
+    </Stack>
+  );
+}
+
+// Mirrors the loaded layout (header, filters, stat cards, a chart panel) so
+// the page doesn't jump when data arrives.
+function AnalyticsSkeleton() {
+  return (
+    <Stack spacing={3} aria-busy="true">
+      <Box>
+        <Typography sx={{ fontSize: 27, fontWeight: 800 }}>Analytics</Typography>
+        <Skeleton variant="text" width={240} sx={{ fontSize: 14, mt: 0.5 }} />
+      </Box>
+      <Stack direction="row" sx={{ justifyContent: "space-between", flexWrap: "wrap", gap: 1.5 }}>
+        <Skeleton variant="rounded" width={180} height={40} />
+        <Skeleton variant="rounded" width={160} height={40} />
+      </Stack>
+      <Grid container spacing={2}>
+        {["Total spend", "Tracked", "Most expensive month"].map((label) => (
+          <Grid key={label} size={{ xs: 12, sm: 4 }}>
+            <StatCard value="" label={label} loading />
+          </Grid>
+        ))}
+      </Grid>
+      <Skeleton variant="rounded" height={320} sx={{ borderRadius: "14px" }} />
     </Stack>
   );
 }

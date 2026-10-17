@@ -101,6 +101,7 @@ export function ExpenseRow({
             fontSize: 16,
             flexShrink: 0,
           }}
+          aria-hidden="true"
         >
           {meta.icon}
         </Box>

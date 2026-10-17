@@ -1,5 +1,10 @@
 import 'dotenv/config';
-import { LogLevel, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  Logger,
+  LogLevel,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -26,6 +31,13 @@ async function bootstrap() {
   if (isProduction) {
     const expressApp = app.getHttpAdapter().getInstance() as Express;
     expressApp.set('trust proxy', 1);
+
+    if (!configService.get<string>('proxy.secret')) {
+      Logger.warn(
+        'API_PROXY_SECRET is not set: rate limits will key on the proxy IP, so all users behind the frontend share one bucket.',
+        'Bootstrap',
+      );
+    }
   }
 
   app.use(helmet());

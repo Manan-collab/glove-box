@@ -7,14 +7,15 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Grid,
+  Skeleton,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
 import { useState } from "react";
+import { QueryErrorState } from "@/features/shell/query-states";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useAcceptFriendRequest,
@@ -27,14 +28,24 @@ import {
 import type { PublicProfile, SearchedUser } from "@/lib/friends-api";
 
 export default function FriendsPage() {
-  const { data: friends, isLoading: friendsLoading } = useFriends();
-  const { data: requests, isLoading: requestsLoading } = useFriendRequests();
+  const friendsQuery = useFriends();
+  const { data: friends, isLoading: friendsLoading } = friendsQuery;
+  const requestsQuery = useFriendRequests();
+  const { data: requests } = requestsQuery;
   const sendRequest = useSendFriendRequest();
   const acceptRequest = useAcceptFriendRequest();
   const rejectRequest = useRejectFriendRequest();
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput, 300);
-  const { data: searchResults, isFetching: searchFetching } = useSearchUsers(debouncedSearch);
+  const {
+    data: searchResults,
+    isFetching: searchFetching,
+    isError: searchError,
+  } = useSearchUsers(debouncedSearch);
+  // One request at a time: accepting while a decline is in flight (or vice
+  // versa) would swap which row shows the spinner.
+  const respondPending = acceptRequest.isPending || rejectRequest.isPending;
+  const respondError = acceptRequest.error ?? rejectRequest.error;
 
   const incoming = requests?.incoming ?? [];
   const outgoing = requests?.outgoing ?? [];
@@ -53,6 +64,8 @@ export default function FriendsPage() {
         size="small"
         options={searchResults ?? []}
         loading={searchFetching}
+        // Locked while a request is sending so the same user can't be picked twice.
+        disabled={sendRequest.isPending}
         filterOptions={(options) => options}
         value={null}
         inputValue={searchInput}
@@ -68,7 +81,13 @@ export default function FriendsPage() {
         getOptionLabel={(option) => option.username}
         isOptionEqualToValue={(option, val) => option.id === val.id}
         getOptionDisabled={(option) => option.status !== "NONE"}
-        noOptionsText={debouncedSearch.trim() ? "No matching users" : "Type a username or name to search"}
+        noOptionsText={
+          !debouncedSearch.trim()
+            ? "Type a username or name to search"
+            : searchError
+              ? "Couldn't search right now — try again"
+              : "No matching users"
+        }
         renderOption={({ key, ...liProps }, option) => (
           <Box
             component="li"
@@ -81,7 +100,10 @@ export default function FriendsPage() {
           </Box>
         )}
         renderInput={(params) => (
-          <TextField {...params} placeholder="Search by username or name" />
+          <TextField
+            {...params}
+            placeholder={sendRequest.isPending ? "Sending friend request…" : "Search by username or name"}
+          />
         )}
       />
       {sendRequest.isError && (
@@ -90,9 +112,14 @@ export default function FriendsPage() {
         </Alert>
       )}
 
-      {(friendsLoading || requestsLoading) && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
+      {requestsQuery.isError && !requests && (
+        <Box>
+          <SectionLabel>Friend requests</SectionLabel>
+          <QueryErrorState
+            message="Couldn't load your friend requests."
+            onRetry={() => requestsQuery.refetch()}
+            retrying={requestsQuery.isFetching}
+          />
         </Box>
       )}
 
@@ -101,6 +128,7 @@ export default function FriendsPage() {
           <SectionLabel>Friend requests</SectionLabel>
           <Panel>
             <Stack spacing={1.5}>
+              {respondError && <Alert severity="error">{respondError.message}</Alert>}
               {incoming.map((req) => (
                 <Stack
                   key={req.id}
@@ -113,7 +141,7 @@ export default function FriendsPage() {
                       size="small"
                       variant="contained"
                       loading={acceptRequest.isPending && acceptRequest.variables === req.id}
-                      disabled={rejectRequest.isPending && rejectRequest.variables === req.id}
+                      disabled={respondPending}
                       onClick={() => acceptRequest.mutate(req.id)}
                     >
                       Accept
@@ -121,7 +149,7 @@ export default function FriendsPage() {
                     <Button
                       size="small"
                       loading={rejectRequest.isPending && rejectRequest.variables === req.id}
-                      disabled={acceptRequest.isPending && acceptRequest.variables === req.id}
+                      disabled={respondPending}
                       onClick={() => rejectRequest.mutate(req.id)}
                     >
                       Decline
@@ -158,7 +186,31 @@ export default function FriendsPage() {
 
       <Box>
         <SectionLabel>Your friends</SectionLabel>
-        {!friendsLoading && !requestsLoading && friends && friends.length === 0 && (
+        {friendsLoading && (
+          <Grid container spacing={2} aria-busy="true">
+            {[0, 1].map((index) => (
+              <Grid key={index} size={{ xs: 12, sm: 6 }}>
+                <Panel>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                    <Skeleton variant="circular" width={40} height={40} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="50%" sx={{ fontSize: 14.5 }} />
+                      <Skeleton variant="text" width="35%" sx={{ fontSize: 12.5 }} />
+                    </Box>
+                  </Stack>
+                </Panel>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+        {friendsQuery.isError && !friends && (
+          <QueryErrorState
+            message="Couldn't load your friends."
+            onRetry={() => friendsQuery.refetch()}
+            retrying={friendsQuery.isFetching}
+          />
+        )}
+        {friends && friends.length === 0 && (
           <Alert severity="info">
             No friends yet — send a request above to get started.
           </Alert>
@@ -197,7 +249,11 @@ function ProfileRow({ profile }: { profile: PublicProfile }) {
   const initial = (profile.displayName ?? profile.username).charAt(0).toUpperCase();
   return (
     <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0 }}>
-      <Avatar src={profile.avatarUrl ?? undefined} sx={{ width: 40, height: 40 }}>
+      <Avatar
+        src={profile.avatarUrl ?? undefined}
+        alt={profile.displayName ?? profile.username}
+        sx={{ width: 40, height: 40 }}
+      >
         {initial}
       </Avatar>
       <Box sx={{ minWidth: 0 }}>

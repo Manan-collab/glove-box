@@ -4,8 +4,8 @@ import { useColorScheme } from "@mui/material/styles";
 import { ButtonGroup, Button } from "@mui/material";
 
 const OPTIONS = [
-  { mode: "light" as const, label: "☀️" },
-  { mode: "dark" as const, label: "🌙" },
+  { mode: "light" as const, label: "☀️", name: "Light theme" },
+  { mode: "dark" as const, label: "🌙", name: "Dark theme" },
 ];
 
 export function ThemeToggle() {
@@ -21,6 +21,8 @@ export function ThemeToggle() {
           key={option.mode}
           variant={activeMode === option.mode ? "contained" : "outlined"}
           onClick={() => setMode(option.mode)}
+          aria-label={option.name}
+          aria-pressed={activeMode === option.mode}
           sx={{ minWidth: 36, px: 1 }}
         >
           {option.label}

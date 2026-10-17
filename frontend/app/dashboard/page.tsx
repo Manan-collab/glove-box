@@ -1,12 +1,13 @@
 "use client";
 
-import { Alert, Box, Button, CircularProgress, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Grid, Skeleton, Stack, Typography } from "@mui/material";
 import { useState } from "react";
 import { CarCard } from "@/features/cars/car-card";
 import { CarFormDialog } from "@/features/cars/car-form-dialog";
 import { DataIoDialog } from "@/features/data-io/data-io-dialog";
 import { Panel, PanelLoading, StatCard } from "@/features/analytics/analytics-ui";
 import { categoryMeta } from "@/features/expenses/expense-categories";
+import { QueryErrorState } from "@/features/shell/query-states";
 import { useGarageAnalytics } from "@/hooks/use-analytics";
 import { useCars, useCreateCar } from "@/hooks/use-cars";
 import { useMe } from "@/hooks/use-auth";
@@ -25,13 +26,23 @@ function formatDate(iso: string) {
 
 export default function DashboardPage() {
   const { data: me } = useMe();
-  const { data: cars, isLoading, isError } = useCars();
-  const { data: analytics, isLoading: analyticsLoading } = useGarageAnalytics();
+  const { data: cars, isLoading, isError, refetch, isFetching } = useCars();
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+    refetch: refetchAnalytics,
+    isFetching: analyticsFetching,
+  } = useGarageAnalytics();
   const createCar = useCreateCar();
   const [addOpen, setAddOpen] = useState(false);
   const [dataIoOpen, setDataIoOpen] = useState(false);
 
   const carCount = cars?.data.length ?? 0;
+  const spentLabel = analyticsLoading ? "…" : analytics ? formatCurrency(analytics.totalSpend) : "—";
+  const analyticsErrorState = (message: string) => (
+    <QueryErrorState message={message} onRetry={() => refetchAnalytics()} retrying={analyticsFetching} />
+  );
 
   return (
     <Stack spacing={3}>
@@ -44,13 +55,17 @@ export default function DashboardPage() {
             {greeting()}, {me?.user.displayName?.split(" ")[0] ?? me?.user.username}.
           </Typography>
           <Typography sx={{ fontSize: 27, fontWeight: 800 }}>Your Garage</Typography>
-          <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
-            {carCount === 0
-              ? "No cars yet."
-              : `${carCount} car${carCount > 1 ? "s" : ""}. ${
-                  analyticsLoading ? "…" : formatCurrency(analytics?.totalSpend ?? 0)
-                } spent. Questionable decisions.`}
-          </Typography>
+          {isLoading ? (
+            <Skeleton variant="text" width={240} sx={{ fontSize: 14, mt: 0.5 }} />
+          ) : (
+            cars && (
+              <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
+                {carCount === 0
+                  ? "No cars yet."
+                  : `${carCount} car${carCount > 1 ? "s" : ""}. ${spentLabel} spent. Questionable decisions.`}
+              </Typography>
+            )
+          )}
         </Box>
         <Stack direction="row" spacing={1.5}>
           <Button variant="outlined" onClick={() => setDataIoOpen(true)}>
@@ -63,12 +78,20 @@ export default function DashboardPage() {
       </Stack>
 
       {isLoading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress />
-        </Box>
+        <Grid container spacing={2} aria-busy="true">
+          {[0, 1, 2].map((index) => (
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Skeleton variant="rounded" height={150} sx={{ borderRadius: "10px" }} />
+              <Skeleton variant="text" width="70%" sx={{ fontSize: 15.5, mt: 1.5 }} />
+              <Skeleton variant="text" width="45%" sx={{ fontSize: 12.5 }} />
+            </Grid>
+          ))}
+        </Grid>
       )}
 
-      {isError && <Alert severity="error">Couldn&apos;t load your cars.</Alert>}
+      {isError && !cars && (
+        <QueryErrorState message="Couldn't load your cars." onRetry={() => refetch()} retrying={isFetching} />
+      )}
 
       {cars && cars.data.length === 0 && (
         <Alert severity="info">
@@ -80,7 +103,7 @@ export default function DashboardPage() {
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 4 }}>
             <StatCard
-              value={formatCurrency(analytics?.totalSpend ?? 0)}
+              value={analytics ? formatCurrency(analytics.totalSpend) : "—"}
               label="Total spent"
               accent
               loading={analyticsLoading}
@@ -88,7 +111,7 @@ export default function DashboardPage() {
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <StatCard
-              value={`${(analytics?.totalTrackedKm ?? 0).toLocaleString()} km`}
+              value={analytics ? `${analytics.totalTrackedKm.toLocaleString()} km` : "—"}
               label="Tracked"
               loading={analyticsLoading}
             />
@@ -127,7 +150,9 @@ export default function DashboardPage() {
             <Panel title="Recent Expenses">
               {analyticsLoading ? (
                 <PanelLoading />
-              ) : !analytics || analytics.recentExpenses.length === 0 ? (
+              ) : !analytics ? (
+                analyticsError && analyticsErrorState("Couldn't load recent expenses.")
+              ) : analytics.recentExpenses.length === 0 ? (
                 <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                   No expenses logged yet.
                 </Typography>
@@ -159,6 +184,7 @@ export default function DashboardPage() {
                             fontSize: 16,
                             flexShrink: 0,
                           }}
+                          aria-hidden="true"
                         >
                           {meta.icon}
                         </Box>
@@ -186,8 +212,10 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 5 }}>
             <Panel title="This Month">
               {analyticsLoading ? (
-                <PanelLoading />
-              ) : !analytics || analytics.currentMonthSpendByCategory.length === 0 ? (
+                <PanelLoading rows={4} />
+              ) : !analytics ? (
+                analyticsError && analyticsErrorState("Couldn't load this month's spending.")
+              ) : analytics.currentMonthSpendByCategory.length === 0 ? (
                 <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                   No spending logged yet this month.
                 </Typography>
@@ -240,7 +268,11 @@ export default function DashboardPage() {
 
       <CarFormDialog
         open={addOpen}
-        onClose={() => setAddOpen(false)}
+        onClose={() => {
+          setAddOpen(false);
+          // Don't greet the next "Add car" with the last attempt's error.
+          createCar.reset();
+        }}
         title="Add a car"
         isSubmitting={createCar.isPending}
         error={createCar.error?.message}

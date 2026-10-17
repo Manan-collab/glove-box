@@ -60,7 +60,7 @@ export function ExpenseDetailDialog({
   if (expense.tyreSize) rows.push({ label: "Size", value: expense.tyreSize });
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="expense-detail-title">
       <DialogContent sx={{ pt: 3 }}>
         <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", mb: 2.5 }}>
           <Box
@@ -75,11 +75,13 @@ export function ExpenseDetailDialog({
               fontSize: 21,
               flexShrink: 0,
             })}
+            aria-hidden="true"
           >
             {meta.icon}
           </Box>
           <Box sx={{ minWidth: 0 }}>
             <Typography
+              id="expense-detail-title"
               sx={{
                 fontSize: 11.5,
                 fontWeight: 700,

@@ -5,13 +5,14 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Grid,
   MenuItem,
+  Skeleton,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -30,6 +31,7 @@ import type { ExpenseCategory } from "@/features/expenses/expense-categories";
 import { ExpenseDetailDialog } from "@/features/expenses/expense-detail-dialog";
 import { ExpenseFormDialog } from "@/features/expenses/expense-form-dialog";
 import { ExpenseRow } from "@/features/expenses/expense-row";
+import { isNotFoundError, NotFoundState, QueryErrorState } from "@/features/shell/query-states";
 import { timeAgo } from "@/lib/time-ago";
 import { formatCurrency } from "@/lib/format-currency";
 import {
@@ -56,14 +58,18 @@ type TabKey = "overview" | "expenses";
 export default function CarDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: car, isLoading, isError } = useCar(params.id);
+  const { data: car, isLoading, error, refetch, isFetching } = useCar(params.id);
   const updateCar = useUpdateCar(params.id);
+  // Separate instance so a failed insurance-expiry update (fired from the
+  // expense form) isn't shown as an "Edit car" error, and vice versa.
+  const updateInsurance = useUpdateCar(params.id);
   const deleteCar = useDeleteCar();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("overview");
 
-  const { data: expensesPage, isLoading: expensesLoading } = useExpenses(params.id);
+  const expensesQuery = useExpenses(params.id);
+  const { data: expensesPage, isLoading: expensesLoading } = expensesQuery;
   const createExpense = useCreateExpense(params.id);
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -74,24 +80,53 @@ export default function CarDetailPage() {
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | "ALL">("ALL");
   const [dataIoOpen, setDataIoOpen] = useState(false);
 
-  const { data: analytics, isLoading: analyticsLoading } = useCarAnalytics(params.id);
-  const { data: notes, isLoading: notesLoading } = useCarNotes(params.id);
+  const analyticsQuery = useCarAnalytics(params.id);
+  const { data: analytics, isLoading: analyticsLoading } = analyticsQuery;
+  const notesQuery = useCarNotes(params.id);
+  const { data: notes, isLoading: notesLoading } = notesQuery;
   const createNote = useCreateNote(params.id);
   const deleteNote = useDeleteNote(params.id);
   const [addNoteOpen, setAddNoteOpen] = useState(false);
 
   if (isLoading) {
+    return <CarDetailSkeleton />;
+  }
+
+  // Checked only without data: deleting this car invalidates its query, and the
+  // 404 that refetch gets shouldn't flash "not found" before we navigate away.
+  if (!car && (isNotFoundError(error) || !error)) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-        <CircularProgress />
-      </Box>
+      <NotFoundState
+        title="Car not found"
+        message="This car doesn't exist or isn't in your garage. It may have been deleted."
+        backHref="/dashboard"
+        backLabel="Back to garage"
+      />
     );
   }
 
-  if (isError || !car) {
-    return <Alert severity="error">Car not found.</Alert>;
+  if (!car) {
+    return (
+      <Stack spacing={2} sx={{ maxWidth: 900 }}>
+        <Button
+          onClick={() => router.push("/dashboard")}
+          sx={{ alignSelf: "flex-start", color: "text.secondary" }}
+        >
+          ← Back to garage
+        </Button>
+        <QueryErrorState message="Couldn't load this car." onRetry={() => refetch()} retrying={isFetching} />
+      </Stack>
+    );
   }
 
+  const expensesFailed = expensesQuery.isError && !expensesPage;
+  const expensesErrorState = (
+    <QueryErrorState
+      message="Couldn't load expenses."
+      onRetry={() => expensesQuery.refetch()}
+      retrying={expensesQuery.isFetching}
+    />
+  );
   const expenses = expensesPage?.data ?? [];
   const acquisition = getAcquisition(car, expenses);
   const ownedLabel = getOwnedLabel(acquisition);
@@ -189,7 +224,14 @@ export default function CarDetailPage() {
             <Button variant="outlined" onClick={() => setEditOpen(true)}>
               Edit
             </Button>
-            <Button variant="outlined" color="error" onClick={() => setConfirmDeleteOpen(true)}>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => {
+                deleteCar.reset();
+                setConfirmDeleteOpen(true);
+              }}
+            >
               Delete
             </Button>
           </Stack>
@@ -206,7 +248,7 @@ export default function CarDetailPage() {
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 4 }}>
               <StatCard
-                value={formatCurrency(analytics?.totalSpend ?? 0)}
+                value={analytics ? formatCurrency(analytics.totalSpend) : "—"}
                 label="Total spent"
                 accent
                 loading={analyticsLoading}
@@ -231,6 +273,8 @@ export default function CarDetailPage() {
           <Panel title="Recent Expenses">
             {expensesLoading ? (
               <PanelLoading />
+            ) : expensesFailed ? (
+              expensesErrorState
             ) : expenses.length === 0 ? (
               <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                 No expenses logged yet.
@@ -247,7 +291,10 @@ export default function CarDetailPage() {
                       setEditingExpense(expense);
                       setExpenseFormOpen(true);
                     }}
-                    onDelete={() => setDeletingExpenseId(expense.id)}
+                    onDelete={() => {
+                      deleteExpense.reset();
+                      setDeletingExpenseId(expense.id);
+                    }}
                   />
                 ))
             )}
@@ -256,6 +303,15 @@ export default function CarDetailPage() {
           {analyticsLoading && (
             <Panel title="Spending Breakdown">
               <PanelLoading />
+            </Panel>
+          )}
+          {analyticsQuery.isError && !analytics && (
+            <Panel title="Spending Breakdown">
+              <QueryErrorState
+                message="Couldn't load spending analytics."
+                onRetry={() => analyticsQuery.refetch()}
+                retrying={analyticsQuery.isFetching}
+              />
             </Panel>
           )}
           {!analyticsLoading && analytics && analytics.spendByCategory.length > 0 && (
@@ -272,8 +328,19 @@ export default function CarDetailPage() {
               </Button>
             }
           >
+            {deleteNote.isError && (
+              <Alert severity="error" onClose={() => deleteNote.reset()} sx={{ mb: 1.5 }}>
+                Couldn&apos;t delete the note: {deleteNote.error.message}
+              </Alert>
+            )}
             {notesLoading ? (
-              <PanelLoading />
+              <PanelLoading rows={2} />
+            ) : notesQuery.isError && !notes ? (
+              <QueryErrorState
+                message="Couldn't load notes."
+                onRetry={() => notesQuery.refetch()}
+                retrying={notesQuery.isFetching}
+              />
             ) : !notes || notes.length === 0 ? (
               <Typography sx={{ fontSize: 13.5, color: "text.secondary" }}>
                 No notes yet.
@@ -284,6 +351,7 @@ export default function CarDetailPage() {
                   key={note.id}
                   note={note}
                   isDeleting={deleteNote.isPending && deleteNote.variables === note.id}
+                  disabled={deleteNote.isPending}
                   onDelete={() => deleteNote.mutate(note.id)}
                 />
               ))
@@ -305,7 +373,7 @@ export default function CarDetailPage() {
               <MenuItem value="ALL">All categories</MenuItem>
               {EXPENSE_CATEGORIES.map((cat) => (
                 <MenuItem key={cat.value} value={cat.value}>
-                  {cat.icon} {cat.label}
+                  <span aria-hidden="true">{cat.icon}</span>&nbsp;{cat.label}
                 </MenuItem>
               ))}
             </TextField>
@@ -328,13 +396,11 @@ export default function CarDetailPage() {
               p: 2.5,
             }}
           >
-            {expensesLoading && (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                <CircularProgress size={24} />
-              </Box>
-            )}
+            {expensesLoading && <PanelLoading rows={4} />}
 
-            {!expensesLoading && filteredExpenses.length === 0 && (
+            {expensesFailed && expensesErrorState}
+
+            {!expensesLoading && !expensesFailed && filteredExpenses.length === 0 && (
               <Typography sx={{ fontSize: 13.5, color: "text.secondary", py: 1 }}>
                 No expenses in this category yet.
               </Typography>
@@ -363,7 +429,10 @@ export default function CarDetailPage() {
                       setEditingExpense(expense);
                       setExpenseFormOpen(true);
                     }}
-                    onDelete={() => setDeletingExpenseId(expense.id)}
+                    onDelete={() => {
+                      deleteExpense.reset();
+                      setDeletingExpenseId(expense.id);
+                    }}
                   />
                 ))}
               </Box>
@@ -375,7 +444,11 @@ export default function CarDetailPage() {
       <CarFormDialog
         key={car.updatedAt}
         open={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={() => {
+          setEditOpen(false);
+          // Don't greet the next open with the last attempt's error.
+          updateCar.reset();
+        }}
         title="Edit car"
         isSubmitting={updateCar.isPending}
         error={updateCar.error?.message}
@@ -402,7 +475,11 @@ export default function CarDetailPage() {
       <ExpenseFormDialog
         key={editingExpense?.id ?? "new"}
         open={expenseFormOpen}
-        onClose={() => setExpenseFormOpen(false)}
+        onClose={() => {
+          setExpenseFormOpen(false);
+          createExpense.reset();
+          updateExpense.reset();
+        }}
         title={editingExpense ? "Edit expense" : "What did you spend on?"}
         isSubmitting={editingExpense ? updateExpense.isPending : createExpense.isPending}
         error={(editingExpense ? updateExpense.error : createExpense.error)?.message}
@@ -435,13 +512,27 @@ export default function CarDetailPage() {
           }
         }}
         onInsuranceExpiryDateSet={(date) => {
-          updateCar.mutate({ insuranceExpiryDate: date });
+          updateInsurance.mutate({ insuranceExpiryDate: date });
         }}
       />
 
+      {/* Runs alongside the expense save and can fail after the form closed. */}
+      <Snackbar
+        open={updateInsurance.isError}
+        autoHideDuration={8000}
+        onClose={() => updateInsurance.reset()}
+      >
+        <Alert severity="error" onClose={() => updateInsurance.reset()}>
+          Couldn&apos;t update the insurance expiry: {updateInsurance.error?.message}
+        </Alert>
+      </Snackbar>
+
       <AddNoteDialog
         open={addNoteOpen}
-        onClose={() => setAddNoteOpen(false)}
+        onClose={() => {
+          setAddNoteOpen(false);
+          createNote.reset();
+        }}
         isSubmitting={createNote.isPending}
         error={createNote.error?.message}
         onSubmit={(body) => {
@@ -453,16 +544,26 @@ export default function CarDetailPage() {
 
       <ExpenseDetailDialog expense={viewingExpense} onClose={() => setViewingExpense(null)} />
 
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={deleteCar.isPending ? undefined : () => setConfirmDeleteOpen(false)}
+      >
         <DialogTitle>Delete this car?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
             This removes {car.year} {car.make} {car.model} permanently. This can&apos;t be
             undone.
           </Typography>
+          {deleteCar.isError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteCar.error.message}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmDeleteOpen(false)} disabled={deleteCar.isPending}>
+            Cancel
+          </Button>
           <Button
             color="error"
             variant="contained"
@@ -478,13 +579,23 @@ export default function CarDetailPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deletingExpenseId} onClose={() => setDeletingExpenseId(null)}>
+      <Dialog
+        open={!!deletingExpenseId}
+        onClose={deleteExpense.isPending ? undefined : () => setDeletingExpenseId(null)}
+      >
         <DialogTitle>Delete this expense?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">This can&apos;t be undone.</Typography>
+          {deleteExpense.isError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteExpense.error.message}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeletingExpenseId(null)}>Cancel</Button>
+          <Button onClick={() => setDeletingExpenseId(null)} disabled={deleteExpense.isPending}>
+            Cancel
+          </Button>
           <Button
             color="error"
             variant="contained"
@@ -524,10 +635,12 @@ function groupByMonth(expenses: Expense[]): [string, Expense[]][] {
 function NoteRow({
   note,
   isDeleting,
+  disabled,
   onDelete,
 }: {
   note: CarNote;
   isDeleting: boolean;
+  disabled: boolean;
   onDelete: () => void;
 }) {
   return (
@@ -554,6 +667,7 @@ function NoteRow({
           fontSize: 16,
           flexShrink: 0,
         }}
+        aria-hidden="true"
       >
         📝
       </Box>
@@ -564,11 +678,51 @@ function NoteRow({
       <Button
         size="small"
         loading={isDeleting}
+        disabled={disabled}
         onClick={onDelete}
         sx={{ color: "text.secondary", minWidth: "auto" }}
+        aria-label="Delete note"
       >
         ✕
       </Button>
+    </Stack>
+  );
+}
+
+// Mirrors the loaded header (photo block, title, chips, actions) and the stat
+// row so the page doesn't jump when the car arrives.
+function CarDetailSkeleton() {
+  return (
+    <Stack spacing={3} sx={{ maxWidth: 900 }} aria-busy="true">
+      <Skeleton variant="text" width={130} sx={{ fontSize: 14 }} />
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2.75} sx={{ alignItems: "flex-start" }}>
+        <Skeleton
+          variant="rounded"
+          height={170}
+          sx={{ width: { xs: "100%", sm: 260 }, borderRadius: "14px", flexShrink: 0 }}
+        />
+        <Box sx={{ flex: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}>
+          <Skeleton variant="text" width="55%" sx={{ fontSize: { xs: 21, sm: 24 } }} />
+          <Skeleton variant="text" width="70%" sx={{ fontSize: 13.5 }} />
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 1.5 }}>
+            {[72, 96, 120, 88].map((width) => (
+              <Skeleton key={width} variant="rounded" width={width} height={24} sx={{ borderRadius: "12px" }} />
+            ))}
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            {[96, 96, 64, 72].map((width, index) => (
+              <Skeleton key={index} variant="rounded" width={width} height={36} />
+            ))}
+          </Stack>
+        </Box>
+      </Stack>
+      <Grid container spacing={2}>
+        {["Total spent", "Cost per km", "Tracked"].map((label) => (
+          <Grid key={label} size={{ xs: 12, sm: 4 }}>
+            <StatCard value="" label={label} loading />
+          </Grid>
+        ))}
+      </Grid>
     </Stack>
   );
 }

@@ -1,35 +1,69 @@
 "use client";
 
-import { Alert, Avatar, Box, Button, CircularProgress, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Avatar, Box, Button, Grid, Skeleton, Stack, Typography } from "@mui/material";
 import { useParams, useRouter } from "next/navigation";
 import { carGradient } from "@/features/cars/car-gradient";
+import { isNotFoundError, NotFoundState, QueryErrorState } from "@/features/shell/query-states";
 import { usePublicGarage } from "@/hooks/use-friends";
 
 export default function FriendGaragePage() {
   const params = useParams<{ username: string }>();
   const router = useRouter();
-  const { data, isLoading, isError } = usePublicGarage(params.username);
+  const { data, isLoading, error, refetch, isFetching } = usePublicGarage(params.username);
+
+  const backButton = (
+    <Button
+      onClick={() => router.push("/dashboard/friends")}
+      sx={{ alignSelf: "flex-start", color: "text.secondary" }}
+    >
+      ← Back to friends
+    </Button>
+  );
 
   if (isLoading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-        <CircularProgress />
-      </Box>
+      <Stack spacing={3} aria-busy="true">
+        {backButton}
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <Skeleton variant="circular" width={64} height={64} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="45%" sx={{ fontSize: { xs: 20, sm: 24 } }} />
+            <Skeleton variant="text" width="25%" sx={{ fontSize: 13.5 }} />
+          </Box>
+        </Stack>
+        <Grid container spacing={2}>
+          {[0, 1, 2].map((index) => (
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Skeleton variant="rounded" height={130} sx={{ borderRadius: "10px" }} />
+              <Skeleton variant="text" width="70%" sx={{ fontSize: 15, mt: 1.5 }} />
+            </Grid>
+          ))}
+        </Grid>
+      </Stack>
     );
   }
 
-  if (isError || !data) {
+  // 404 = no such user, 403 = not friends; either way there's no garage to show.
+  if (!data && (isNotFoundError(error) || !error)) {
+    return (
+      <NotFoundState
+        title="Garage not found"
+        message={`@${params.username} doesn't exist, or you aren't friends yet — only friends can see each other's garages.`}
+        backHref="/dashboard/friends"
+        backLabel="Back to friends"
+      />
+    );
+  }
+
+  if (!data) {
     return (
       <Stack spacing={2}>
-        <Button
-          onClick={() => router.push("/dashboard/friends")}
-          sx={{ alignSelf: "flex-start", color: "text.secondary" }}
-        >
-          ← Back to friends
-        </Button>
-        <Alert severity="error">
-          Couldn&apos;t load this garage — you may not be friends with this user.
-        </Alert>
+        {backButton}
+        <QueryErrorState
+          message="Couldn't load this garage."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
       </Stack>
     );
   }
@@ -39,15 +73,14 @@ export default function FriendGaragePage() {
 
   return (
     <Stack spacing={3}>
-      <Button
-        onClick={() => router.push("/dashboard/friends")}
-        sx={{ alignSelf: "flex-start", color: "text.secondary" }}
-      >
-        ← Back to friends
-      </Button>
+      {backButton}
 
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-        <Avatar src={user.avatarUrl ?? undefined} sx={{ width: 64, height: 64, fontSize: 22 }}>
+        <Avatar
+          src={user.avatarUrl ?? undefined}
+          alt={user.displayName ?? user.username}
+          sx={{ width: 64, height: 64, fontSize: 22 }}
+        >
           {initial}
         </Avatar>
         <Box sx={{ minWidth: 0 }}>
@@ -61,8 +94,8 @@ export default function FriendGaragePage() {
       </Stack>
 
       <Alert severity="info" icon={false} sx={{ display: "inline-flex", alignSelf: "flex-start" }}>
-        🔒 You&apos;re viewing a friend&apos;s public garage — spending and expense details are
-        private.
+        <span aria-hidden="true">🔒</span> You&apos;re viewing a friend&apos;s public garage —
+        spending and expense details are private.
       </Alert>
 
       {cars.length === 0 ? (

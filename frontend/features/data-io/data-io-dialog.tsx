@@ -43,11 +43,14 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
 
   const anyError =
     exportWorkbook.error ?? downloadTemplate.error ?? importWorkbook.error;
+  // Closing mid-import would drop the result summary (or the error) on the floor.
+  const anyPending =
+    exportWorkbook.isPending || downloadTemplate.isPending || importWorkbook.isPending;
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={anyPending ? undefined : onClose}
       maxWidth="sm"
       fullWidth
       fullScreen={isPhone}
@@ -98,7 +101,9 @@ export function DataIoDialog({ open, onClose }: DataIoDialogProps) {
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} disabled={anyPending}>
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );

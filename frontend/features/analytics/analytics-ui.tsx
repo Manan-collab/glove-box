@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, CircularProgress, Skeleton, Stack, Typography } from "@mui/material";
+import { Box, Skeleton, Stack, Typography } from "@mui/material";
 import { categoryMeta, type ExpenseCategory } from "@/features/expenses/expense-categories";
 import { formatCurrency } from "@/lib/format-currency";
 
@@ -70,13 +70,23 @@ export function Panel({
   );
 }
 
-// Shared small-spinner placeholder for a panel's body while its own query
-// is still loading (as opposed to the page-level loading gate).
-export function PanelLoading() {
+// Shared placeholder for a panel's body while its own query is still loading
+// (as opposed to the page-level loading gate) — shaped like the icon + two
+// lines + amount rows most panels render.
+export function PanelLoading({ rows = 3 }: { rows?: number }) {
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-      <CircularProgress size={24} />
-    </Box>
+    <Stack spacing={0} aria-busy="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <Stack key={index} direction="row" spacing={1.5} sx={{ alignItems: "center", py: 1.25 }}>
+          <Skeleton variant="rounded" width={34} height={34} sx={{ borderRadius: "9px", flexShrink: 0 }} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="45%" sx={{ fontSize: 13.5 }} />
+            <Skeleton variant="text" width="30%" sx={{ fontSize: 12 }} />
+          </Box>
+          <Skeleton variant="text" width={64} sx={{ fontSize: 13.5 }} />
+        </Stack>
+      ))}
+    </Stack>
   );
 }
 
@@ -97,7 +107,7 @@ export function CategoryBreakdownBars({
           return (
             <Stack key={row.category} direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
               <Typography sx={{ fontSize: 13, width: 90, flexShrink: 0 }}>
-                {meta.icon} {meta.label}
+                <span aria-hidden="true">{meta.icon}</span> {meta.label}
               </Typography>
               <Box
                 sx={{

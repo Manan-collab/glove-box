@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@/lib/api-client";
 import {
   type CarFormValues,
   createCar,
@@ -22,6 +23,11 @@ export function useCar(id: string) {
     queryKey: [...CARS_QUERY_KEY, id],
     queryFn: () => getCar(id),
     enabled: !!id,
+    // A missing or someone else's car won't appear on retry — fail fast so the
+    // page shows "not found" instead of spinning through the default backoff.
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && (error.status === 404 || error.status === 403)) &&
+      failureCount < 3,
   });
 }
 

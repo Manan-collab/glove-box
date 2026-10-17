@@ -121,12 +121,16 @@ DATABASE_URL="<production-url>" npx prisma migrate deploy
   - `JWT_SECRET`, `JWT_REFRESH_SECRET` — generate fresh, unique 32+ character secrets for production; never reuse dev values
   - `FRONTEND_URL` — your deployed frontend's **exact** origin (e.g. `https://glovebox.vercel.app`, no trailing slash). Auth cookies get `Secure` whenever this is not `localhost`; they're always `SameSite=Lax`, since the frontend proxies the API and they're first-party
   - `GOOGLE_CLIENT_ID` — same Google OAuth Client ID as the frontend
+  - `API_PROXY_SECRET` — a random 32+ character secret (`openssl rand -hex 32`), identical on the frontend. The frontend's proxy sends it with each user's IP so rate limits apply per user; requests without it are limited by their connecting IP, so faking the IP header doesn't get around limits. If unset, all users behind the proxy share one rate limit (a warning is logged at startup)
 
 ### 3. Frontend (Vercel)
 - Framework preset: Next.js (auto-detected)
 - **Environment variables** (see `frontend/.env.example`):
   - `BACKEND_API_URL` — your deployed backend's API base, e.g. `https://glovebox-api.onrender.com/api/v1`. Server-only: it's the proxy target for `/api/v1/*` and is read at build time, so redeploy after changing it (the old `NEXT_PUBLIC_API_URL` name still works as a fallback)
   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — your Google OAuth Client ID (this one is meant to be public — the backend independently re-verifies every credential, it never trusts the client alone)
+  - `API_PROXY_SECRET` — same value as the backend's
+  - `NEXT_PUBLIC_CONTACT_EMAIL` — the address shown on `/privacy` for data and account-deletion requests
+  - `NEXT_PUBLIC_SITE_URL` — optional; only needed with a custom domain. Canonical URLs, `sitemap.xml`, `robots.txt` and social-share images use it, falling back to Vercel's production domain
 
 Deploy order when changing the cookie or proxy setup: frontend first, then backend. The backend's `SameSite=Lax` cookies only work once the browser reaches the API through the frontend's proxy.
 

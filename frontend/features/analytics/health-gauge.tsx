@@ -30,6 +30,8 @@ export function HealthGauge({ health }: { health: HealthScore }) {
           valueMax={100}
           startAngle={-110}
           endAngle={110}
+          title="Health score"
+          aria-valuetext={`${health.score} out of 100`}
           sx={{
             [`& .${gaugeClasses.valueArc}`]: { fill: `var(--mui-palette-${color.replace(".", "-")})` },
             [`& .${gaugeClasses.valueText}`]: { fontSize: 32, fontWeight: 800 },
@@ -37,6 +39,7 @@ export function HealthGauge({ health }: { health: HealthScore }) {
           text={({ value }) => `${value}`}
         />
         <Typography
+          aria-hidden="true"
           sx={{
             position: "absolute",
             left: "50%",

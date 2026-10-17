@@ -124,7 +124,8 @@ export function CarFormDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      // Closing mid-save would hide the outcome, including an error.
+      onClose={isSubmitting ? undefined : onClose}
       maxWidth="sm"
       fullWidth
       fullScreen={isPhone}
@@ -406,7 +407,9 @@ export function CarFormDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
         <Button variant="contained" onClick={submit} loading={isSubmitting}>
           Save
         </Button>

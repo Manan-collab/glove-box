@@ -35,7 +35,7 @@ export function YearOverYearPanel({ data }: { data: YearOverYear }) {
             sx={{ justifyContent: "space-between", alignItems: "center" }}
           >
             <Typography sx={{ fontSize: 13.5 }}>
-              {meta.icon} {meta.label}
+              <span aria-hidden="true">{meta.icon}</span> {meta.label}
             </Typography>
             <ChangeChip percentChange={row.percentChange} />
           </Stack>

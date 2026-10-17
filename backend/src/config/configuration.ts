@@ -31,5 +31,6 @@ export default () => {
       refreshSecret: process.env.JWT_REFRESH_SECRET,
     },
     google: { clientId: process.env.GOOGLE_CLIENT_ID },
+    proxy: { secret: process.env.API_PROXY_SECRET },
   };
 };
