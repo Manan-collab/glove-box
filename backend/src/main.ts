@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
-import type { Express } from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -29,6 +29,14 @@ async function bootstrap() {
   }
 
   app.use(helmet());
+  // Responses pass through the frontend's Vercel proxy, and Vercel's CDN
+  // honours upstream caching headers on rewrites. Every response here is
+  // per-user (cookie-authenticated), so none of it may ever be cached and
+  // served to someone else.
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(cookieParser());
   app.enableCors({
     origin: configService.get<string>('app.frontendUrl'),

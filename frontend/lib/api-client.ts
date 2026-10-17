@@ -1,4 +1,6 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+// Same-origin on purpose — next.config.ts proxies this to the backend so the
+// auth cookies stay first-party.
+export const API_BASE_URL = "/api/v1";
 
 export class ApiError extends Error {
   constructor(
@@ -8,6 +10,25 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+// A dashboard load fires several queries at once; once the 15-minute access
+// token expires they all 401 together. Share one in-flight refresh between
+// them instead of sending a burst of /auth/refresh calls at the rate limiter.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  refreshInFlight ??= fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  })
+    // A network error rejects rather than resolving false, so a blip
+    // surfaces as a retryable error instead of a 401 that signs the user out.
+    .then((res) => res.ok)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
 }
 
 // Shared by the JSON request() helper below and by data-io-api.ts's raw
@@ -25,11 +46,7 @@ export async function fetchWithRefresh(
   });
 
   if (res.status === 401 && !isRetry && path !== "/auth/refresh") {
-    const refreshed = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-    });
-    if (refreshed.ok) {
+    if (await refreshSession()) {
       return fetchWithRefresh(path, init, true);
     }
   }

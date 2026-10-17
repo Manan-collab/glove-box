@@ -5,6 +5,7 @@ import { Alert, Box, CircularProgress, Paper, Stack, Typography } from "@mui/mat
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useGoogleLogin, useMe } from "@/hooks/use-auth";
+import { SessionCookieBlockedError } from "@/lib/auth-api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -120,8 +121,10 @@ export default function LoginPage() {
           </Box>
 
           {(googleError || googleLogin.isError) && (
-            <Alert severity="error" sx={{ width: "100%" }}>
-              Sign-in failed. Please try again.
+            <Alert severity="error" sx={{ width: "100%", textAlign: "left" }}>
+              {googleLogin.error instanceof SessionCookieBlockedError
+                ? "Your browser blocked the sign-in cookie. Allow cookies for this site (and turn off private browsing or strict tracking protection), then try again."
+                : "Sign-in failed. Please try again."}
             </Alert>
           )}
 

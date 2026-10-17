@@ -73,14 +73,15 @@ export class AuthController {
   }
 
   private authCookieOptions(): CookieOptions {
-    const crossSite = this.config.get<boolean>('app.cookieCrossSite') ?? false;
     return {
       httpOnly: true,
-      secure: crossSite,
-      // Frontend (Vercel) and backend (Render) are different sites — cookies
-      // scoped to the API host need SameSite=None or the browser won't attach
-      // them on credentialed fetch/XHR from the frontend origin.
-      sameSite: crossSite ? 'none' : 'lax',
+      secure: this.config.get<boolean>('app.cookieSecure') ?? false,
+      // The frontend proxies /api/v1 to us (frontend/next.config.ts), so these
+      // are first-party cookies on the frontend's origin. Lax keeps other
+      // sites from riding them on cross-site form POSTs (CSRF). Don't go back
+      // to calling the API cross-site with SameSite=None: iOS drops
+      // third-party cookies and login breaks there.
+      sameSite: 'lax',
       path: '/',
     };
   }

@@ -10,11 +10,10 @@ function isLocalFrontend(url: string): boolean {
 export default () => {
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001';
   const nodeEnv = process.env.NODE_ENV ?? 'development';
-  // Auth cookies are scoped to the API host (Render). Any non-localhost
-  // frontend (Vercel) sends credentialed fetches cross-site, so cookies
-  // must be SameSite=None; Secure — even if NODE_ENV was left as
-  // "development" on the deploy platform.
-  const cookieCrossSite =
+  // Any non-localhost frontend is served over HTTPS, so auth cookies get
+  // Secure — even if NODE_ENV was left as "development" on the deploy
+  // platform. Plain-http localhost dev would drop Secure cookies.
+  const cookieSecure =
     nodeEnv === 'production' || !isLocalFrontend(frontendUrl);
 
   return {
@@ -22,7 +21,7 @@ export default () => {
       port: parseInt(process.env.PORT ?? '3000', 10),
       nodeEnv,
       frontendUrl,
-      cookieCrossSite,
+      cookieSecure,
     },
     database: {
       url: process.env.DATABASE_URL,

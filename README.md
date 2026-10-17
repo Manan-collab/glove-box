@@ -84,7 +84,7 @@ npm run start:dev      # http://localhost:3000
 
 # Frontend
 cd ../frontend
-cp .env.example .env.local   # fill in NEXT_PUBLIC_API_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID
+cp .env.example .env.local   # fill in BACKEND_API_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID
 npm install
 npm run dev             # http://localhost:3001
 ```
@@ -103,7 +103,7 @@ cd backend && npm run test:e2e
 
 ## Deployment
 
-The app is designed to run with the frontend and backend on **different domains** (e.g. Vercel + Render) — that's already accounted for in the auth cookie config (`SameSite=None; Secure` in production) and CORS setup, not something you need to patch.
+The app is designed to run with the frontend and backend on **different domains** (e.g. Vercel + Render). The browser never calls the backend directly: the frontend proxies `/api/v1/*` to it (see `frontend/next.config.ts`), so auth cookies are first-party. Calling the backend cross-site breaks login on iOS, where every browser blocks third-party cookies.
 
 ### 1. Database
 Use the same Neon (or any managed Postgres) instance you used for development, or provision a new one. Run migrations against it once before first deploy:
@@ -119,15 +119,16 @@ DATABASE_URL="<production-url>" npx prisma migrate deploy
   - `NODE_ENV=production`
   - `DATABASE_URL` — your production Postgres connection string
   - `JWT_SECRET`, `JWT_REFRESH_SECRET` — generate fresh, unique 32+ character secrets for production; never reuse dev values
-  - `FRONTEND_URL` — your deployed frontend's **exact** origin (e.g. `https://glovebox.vercel.app`, no trailing slash) — CORS only allows this one origin, and auth cookies switch to `SameSite=None; Secure` whenever this is not `localhost`
-  - `NODE_ENV=production` — recommended on Render; even without it, a non-localhost `FRONTEND_URL` still enables cross-site cookies
+  - `FRONTEND_URL` — your deployed frontend's **exact** origin (e.g. `https://glovebox.vercel.app`, no trailing slash). Auth cookies get `Secure` whenever this is not `localhost`; they're always `SameSite=Lax`, since the frontend proxies the API and they're first-party
   - `GOOGLE_CLIENT_ID` — same Google OAuth Client ID as the frontend
 
 ### 3. Frontend (Vercel)
 - Framework preset: Next.js (auto-detected)
 - **Environment variables** (see `frontend/.env.example`):
-  - `NEXT_PUBLIC_API_URL` — your deployed backend's API base, e.g. `https://glovebox-api.onrender.com/api/v1`
+  - `BACKEND_API_URL` — your deployed backend's API base, e.g. `https://glovebox-api.onrender.com/api/v1`. Server-only: it's the proxy target for `/api/v1/*` and is read at build time, so redeploy after changing it (the old `NEXT_PUBLIC_API_URL` name still works as a fallback)
   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — your Google OAuth Client ID (this one is meant to be public — the backend independently re-verifies every credential, it never trusts the client alone)
+
+Deploy order when changing the cookie or proxy setup: frontend first, then backend. The backend's `SameSite=Lax` cookies only work once the browser reaches the API through the frontend's proxy.
 
 ### 4. Google OAuth console
 After both are deployed, go back to your OAuth Client in Google Cloud Console and add your **production frontend URL** as an authorized JavaScript origin (and as an authorized redirect URI if prompted). Google Sign-In will silently fail on the deployed site until this is done — it's scoped per-origin.
