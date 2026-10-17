@@ -113,21 +113,35 @@ export function ExpenseFormDialog({
     >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary", mb: 1 }}>
+        <Typography
+          id="expense-category-label"
+          sx={{ fontSize: 12.5, fontWeight: 600, color: "text.secondary", mb: 1 }}
+        >
           Category
         </Typography>
+        {/* Each tile is a label around a visually hidden native radio, so the
+            browser handles keyboard use (Tab into the group, arrow keys to
+            move, selection follows focus) and screen readers announce it as a
+            radio group. */}
         <Controller
           name="category"
           control={control}
           render={({ field }) => (
-            <Grid container spacing={1} sx={{ mb: 2 }}>
+            <Grid
+              container
+              spacing={1}
+              role="radiogroup"
+              aria-labelledby="expense-category-label"
+              sx={{ mb: 2 }}
+            >
               {EXPENSE_CATEGORIES.map((cat) => {
                 const selected = field.value === cat.value;
                 return (
                   <Grid key={cat.value} size={{ xs: 4, sm: 3 }}>
                     <Box
-                      onClick={() => field.onChange(cat.value)}
+                      component="label"
                       sx={{
+                        position: "relative",
                         border: "1px solid",
                         borderColor: selected ? "primary.main" : "divider",
                         bgcolor: selected ? "action.selected" : "background.default",
@@ -143,8 +157,34 @@ export function ExpenseFormDialog({
                         flexDirection: "column",
                         alignItems: "center",
                         gap: 0.5,
+                        "&:has(input:focus-visible)": {
+                          outline: "2px solid",
+                          outlineColor: "primary.main",
+                          outlineOffset: 2,
+                        },
                       }}
                     >
+                      <Box
+                        component="input"
+                        type="radio"
+                        name={field.name}
+                        value={cat.value}
+                        checked={selected}
+                        onChange={() => field.onChange(cat.value)}
+                        onBlur={field.onBlur}
+                        disabled={isSubmitting}
+                        sx={{
+                          position: "absolute",
+                          width: 1,
+                          height: 1,
+                          m: 0,
+                          p: 0,
+                          overflow: "hidden",
+                          clipPath: "inset(50%)",
+                          whiteSpace: "nowrap",
+                          border: 0,
+                        }}
+                      />
                       <Box component="span" aria-hidden="true" sx={{ fontSize: 19 }}>
                         {cat.icon}
                       </Box>
