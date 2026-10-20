@@ -1,0 +1,22 @@
+enum ReminderKind {
+  INSURANCE_EXPIRY
+}
+
+// One row per reminder email actually sent. The unique key is what stops a
+// re-run (or a second instance) of the daily job from emailing twice; a new
+// dueDate (the user renewed and set the next expiry) starts a fresh cycle.
+model SentReminder {
+  id      String       @id @default(uuid())
+  carId   String
+  kind    ReminderKind
+  // The date the reminder is about, e.g. Car.insuranceExpiryDate at send time.
+  dueDate DateTime
+  // Which reminder in the cycle: days before dueDate (30, 7 or 1).
+  stage   Int
+  sentAt  DateTime     @default(now())
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([carId, kind, dueDate, stage])
+  @@map("sent_reminders")
+}

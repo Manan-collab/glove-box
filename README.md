@@ -23,6 +23,7 @@ It's also a full-stack portfolio project, built with a deliberate engineering ph
 - Expense logging with category-aware fields (fuel, service, insurance, tyres, repairs, mods)
 - Analytics — total spend, spend by category, monthly trends, cost/km (derived from logged odometer readings), garage-wide car comparison
 - Friends — send/accept requests, view a friend's public garage (car specs only, no financial data ever exposed)
+- Email notifications — welcome, friend request sent/accepted, and insurance expiry reminders 30/7/1 days out (Gmail SMTP; preview the templates with `npm run mail:preview` in `backend/`)
 - Light / dark / system theme
 - *(planned, blocked on credentials)* Photo and receipt uploads (S3/R2-backed, signed-URL flow)
 
@@ -122,6 +123,7 @@ DATABASE_URL="<production-url>" npx prisma migrate deploy
   - `FRONTEND_URL` — your deployed frontend's **exact** origin (e.g. `https://glovebox.vercel.app`, no trailing slash). Auth cookies get `Secure` whenever this is not `localhost`; they're always `SameSite=Lax`, since the frontend proxies the API and they're first-party
   - `GOOGLE_CLIENT_ID` — same Google OAuth Client ID as the frontend
   - `API_PROXY_SECRET` — a random 32+ character secret (`openssl rand -hex 32`), identical on the frontend. The frontend's proxy sends it with each user's IP so rate limits apply per user; requests without it are limited by their connecting IP, so faking the IP header doesn't get around limits. If unset, all users behind the proxy share one rate limit (a warning is logged at startup)
+  - `MAIL_USER` / `MAIL_APP_PASSWORD` — the Gmail address emails are sent from, and a [Gmail App Password](https://myaccount.google.com/apppasswords) for it (needs 2-Step Verification). Set both or neither; without them, emails are only logged. Used for the welcome, friend-request and insurance-expiry emails. The insurance reminder job runs in-process daily at 09:00 IST, so the backend must be awake then: a free instance that sleeps when idle will miss runs. A missed day catches up on the next run, but a stage can be missed outright if the server stays asleep through it
 
 ### 3. Frontend (Vercel)
 - Framework preset: Next.js (auto-detected)

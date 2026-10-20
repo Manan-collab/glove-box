@@ -1,10 +1,14 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../../generated/prisma/client';
+import { MailService } from '../mail/mail.service';
+import { renderFriendRequestAcceptedEmail } from '../mail/templates/friend-request-accepted.template';
+import { renderFriendRequestReceivedEmail } from '../mail/templates/friend-request-received.template';
 
 const PUBLIC_PROFILE_SELECT = {
   id: true,
@@ -13,9 +17,23 @@ const PUBLIC_PROFILE_SELECT = {
   avatarUrl: true,
 } as const;
 
+// The public-garage fields a friend email may show — specs only.
+const GARAGE_CAR_SELECT = {
+  make: true,
+  model: true,
+  year: true,
+  variant: true,
+  fuelType: true,
+} as const;
+
 @Injectable()
 export class FriendsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(FriendsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+  ) {}
 
   async sendRequest(fromUserId: string, toUsername: string) {
     const toUser = await this.prisma.user.findUnique({
@@ -45,9 +63,11 @@ export class FriendsService {
       );
     }
 
-    return this.prisma.friendRequest.create({
+    const request = await this.prisma.friendRequest.create({
       data: { fromUserId, toUserId: toUser.id },
     });
+    await this.notifyRequestReceived(fromUserId, toUser);
+    return request;
   }
 
   // Case-insensitive substring match on username or display name, annotated
@@ -151,6 +171,7 @@ export class FriendsService {
       }
     }
     await this.prisma.friendRequest.delete({ where: { id: requestId } });
+    await this.notifyRequestAccepted(req.fromUserId, userId);
   }
 
   async rejectRequest(userId: string, requestId: string) {
@@ -191,6 +212,78 @@ export class FriendsService {
       where: { userAId_userBId: { userAId, userBId } },
     });
     return !!friendship;
+  }
+
+  // The reads an email needs are awaited here rather than in the background:
+  // gotcha #1 means they must not overlap the request's own queries. Only
+  // the SMTP send runs detached. Never throws — the friend request itself
+  // already succeeded, and a missing email must not turn it into a 500.
+  private async notifyRequestReceived(
+    senderId: string,
+    recipient: {
+      email: string;
+      username: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+    },
+  ) {
+    try {
+      const sender = await this.prisma.user.findUnique({
+        where: { id: senderId },
+        select: PUBLIC_PROFILE_SELECT,
+      });
+      if (!sender) return;
+      const senderCars = await this.garageOf(senderId);
+      void this.mail.send(
+        recipient.email,
+        renderFriendRequestReceivedEmail({
+          appUrl: this.mail.appUrl,
+          recipient,
+          sender,
+          senderCars,
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not prepare friend-request email: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  private async notifyRequestAccepted(requesterId: string, accepterId: string) {
+    try {
+      const recipient = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { ...PUBLIC_PROFILE_SELECT, email: true },
+      });
+      const accepter = await this.prisma.user.findUnique({
+        where: { id: accepterId },
+        select: PUBLIC_PROFILE_SELECT,
+      });
+      if (!recipient || !accepter) return;
+      const accepterCars = await this.garageOf(accepterId);
+      void this.mail.send(
+        recipient.email,
+        renderFriendRequestAcceptedEmail({
+          appUrl: this.mail.appUrl,
+          recipient,
+          accepter,
+          accepterCars,
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not prepare request-accepted email: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  private garageOf(userId: string) {
+    return this.prisma.car.findMany({
+      where: { userId },
+      select: GARAGE_CAR_SELECT,
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   private canonicalPair(a: string, b: string): [string, string] {

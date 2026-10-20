@@ -32,5 +32,10 @@ export default () => {
     },
     google: { clientId: process.env.GOOGLE_CLIENT_ID },
     proxy: { secret: process.env.API_PROXY_SECRET },
+    mail: {
+      user: process.env.MAIL_USER,
+      // Google displays app passwords in groups of four; SMTP wants them bare.
+      appPassword: process.env.MAIL_APP_PASSWORD?.replace(/\s+/g, ''),
+    },
   };
 };

@@ -75,3 +75,6 @@ docs/superpowers/
 .agents/
 .windsurf/
 skills-lock.json
+
+# Rendered email previews (npm run mail:preview)
+.mail-preview/

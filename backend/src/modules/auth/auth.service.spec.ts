@@ -10,6 +10,7 @@ describe('AuthService', () => {
   let prisma: { user: { findUnique: jest.Mock; create: jest.Mock } };
   let jwt: { sign: jest.Mock };
   let config: { getOrThrow: jest.Mock };
+  let mail: { send: jest.Mock; appUrl: string };
   let verifyIdToken: jest.Mock;
 
   const CONFIG_VALUES: Record<string, string> = {
@@ -30,7 +31,17 @@ describe('AuthService', () => {
       getOrThrow: jest.fn((key: string) => CONFIG_VALUES[key]),
     };
 
-    service = new AuthService(prisma as any, jwt as any, config as any);
+    mail = {
+      send: jest.fn().mockResolvedValue(true),
+      appUrl: 'https://glovebox.example',
+    };
+
+    service = new AuthService(
+      prisma as any,
+      jwt as any,
+      config as any,
+      mail as any,
+    );
   });
 
   describe('authenticateWithGoogle', () => {
@@ -94,6 +105,13 @@ describe('AuthService', () => {
         expect.objectContaining({
           secret: 'test-refresh-secret',
           expiresIn: '7d',
+        }),
+      );
+      expect(mail.send).toHaveBeenCalledTimes(1);
+      expect(mail.send).toHaveBeenCalledWith(
+        'manan.mer@example.com',
+        expect.objectContaining({
+          subject: 'Welcome to Glovebox, Manan. Your garage is open',
         }),
       );
     });
@@ -174,6 +192,8 @@ describe('AuthService', () => {
         accessToken: 'signed-token',
         refreshToken: 'signed-token',
       });
+      // The request that won the race sends the welcome, not this one.
+      expect(mail.send).not.toHaveBeenCalled();
     });
 
     it('logs in an existing user without creating a new row', async () => {
@@ -199,6 +219,7 @@ describe('AuthService', () => {
 
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(result.user.id).toBe('user-1');
+      expect(mail.send).not.toHaveBeenCalled();
     });
 
     it('throws Unauthorized when the Google credential fails verification', async () => {

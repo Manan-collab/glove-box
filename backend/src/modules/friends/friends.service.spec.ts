@@ -19,7 +19,9 @@ describe('FriendsService', () => {
       create: jest.Mock;
       deleteMany: jest.Mock;
     };
+    car: { findMany: jest.Mock };
   };
+  let mail: { send: jest.Mock; appUrl: string };
 
   beforeEach(() => {
     prisma = {
@@ -37,8 +39,13 @@ describe('FriendsService', () => {
         create: jest.fn(),
         deleteMany: jest.fn(),
       },
+      car: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    service = new FriendsService(prisma as any);
+    mail = {
+      send: jest.fn().mockResolvedValue(true),
+      appUrl: 'https://glovebox.example',
+    };
+    service = new FriendsService(prisma as any, mail as any);
   });
 
   describe('sendRequest', () => {
@@ -104,6 +111,64 @@ describe('FriendsService', () => {
       expect(prisma.friendRequest.create).toHaveBeenCalledWith({
         data: { fromUserId: 'user-1', toUserId: 'user-2' },
       });
+    });
+
+    it('emails the recipient with the sender and their public garage', async () => {
+      const recipient = {
+        id: 'user-2',
+        email: 'them@example.com',
+        username: 'them',
+        displayName: 'Them',
+        avatarUrl: null,
+      };
+      const sender = {
+        id: 'user-1',
+        username: 'priya.k',
+        displayName: 'Priya Kulkarni',
+        avatarUrl: null,
+      };
+      prisma.user.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.username === 'them' ? recipient : sender),
+      );
+      prisma.friendship.findUnique.mockResolvedValue(null);
+      prisma.friendRequest.findUnique.mockResolvedValue(null);
+      prisma.friendRequest.create.mockResolvedValue({ id: 'req-1' });
+      prisma.car.findMany.mockResolvedValue([
+        {
+          make: 'Mahindra',
+          model: 'Thar',
+          year: 2023,
+          variant: 'LX',
+          fuelType: 'Diesel',
+        },
+      ]);
+
+      await service.sendRequest('user-1', 'them');
+
+      expect(prisma.car.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
+      expect(mail.send).toHaveBeenCalledWith(
+        'them@example.com',
+        expect.objectContaining({
+          subject: 'Priya Kulkarni wants to see your garage',
+          html: expect.stringContaining('Mahindra Thar 2023'),
+        }),
+      );
+    });
+
+    it('still succeeds when preparing the email fails', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ id: 'user-2', username: 'them' })
+        .mockRejectedValueOnce(new Error('db hiccup'));
+      prisma.friendship.findUnique.mockResolvedValue(null);
+      prisma.friendRequest.findUnique.mockResolvedValue(null);
+      prisma.friendRequest.create.mockResolvedValue({ id: 'req-1' });
+
+      await expect(service.sendRequest('user-1', 'them')).resolves.toEqual({
+        id: 'req-1',
+      });
+      expect(mail.send).not.toHaveBeenCalled();
     });
   });
 
@@ -204,6 +269,43 @@ describe('FriendsService', () => {
       expect(prisma.friendRequest.delete).toHaveBeenCalledWith({
         where: { id: 'req-1' },
       });
+    });
+
+    it('emails the original sender that their request was accepted', async () => {
+      prisma.friendRequest.findFirst.mockResolvedValue({
+        id: 'req-1',
+        fromUserId: 'requester',
+        toUserId: 'accepter',
+      });
+      prisma.friendship.create.mockResolvedValue({ id: 'friendship-1' });
+      prisma.user.findUnique.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.id === 'requester'
+            ? {
+                id: 'requester',
+                email: 'requester@example.com',
+                username: 'requester',
+                displayName: null,
+                avatarUrl: null,
+              }
+            : {
+                id: 'accepter',
+                username: 'priya.k',
+                displayName: 'Priya Kulkarni',
+                avatarUrl: null,
+              },
+        ),
+      );
+
+      await service.acceptRequest('accepter', 'req-1');
+
+      expect(mail.send).toHaveBeenCalledWith(
+        'requester@example.com',
+        expect.objectContaining({
+          subject: 'Priya Kulkarni accepted your friend request',
+          html: expect.stringContaining('/dashboard/friends/priya.k'),
+        }),
+      );
     });
 
     it('still deletes the request if the friendship already exists (idempotent retry)', async () => {

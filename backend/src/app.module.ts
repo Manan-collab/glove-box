@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ClientIpThrottlerGuard } from './common/guards/client-ip-throttler.guard';
 import configuration from './config/configuration';
@@ -14,6 +15,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotesModule } from './modules/notes/notes.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -28,6 +30,7 @@ import { UsersModule } from './modules/users/users.module';
     // exhausted by ordinary navigation. Sensitive routes like POST
     // /auth/google keep their own tighter @Throttle.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -38,6 +41,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     DataIoModule,
     NotesModule,
+    RemindersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ClientIpThrottlerGuard }],
 })

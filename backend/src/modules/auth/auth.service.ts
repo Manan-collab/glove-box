@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { PrismaService } from '../../database/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { renderWelcomeEmail } from '../mail/templates/welcome.template';
 import { toSafeUser } from './utils/to-safe-user';
 
 const ACCESS_TOKEN_TTL = '15m';
@@ -16,6 +18,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {
     this.googleClient = new OAuth2Client(
       this.config.getOrThrow<string>('google.clientId'),
@@ -70,7 +73,7 @@ export class AuthService {
     // — treat that as a successful sign-in and return the row the other
     // request created, instead of surfacing it as a failed login.
     try {
-      return await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           googleId: payload.sub,
           email: payload.email!,
@@ -79,6 +82,13 @@ export class AuthService {
           avatarUrl: payload.picture,
         },
       });
+      // Only the request that actually created the row welcomes them, so a
+      // double-fired sign-in (the race below) can't send it twice.
+      void this.mail.send(
+        user.email,
+        renderWelcomeEmail({ appUrl: this.mail.appUrl, user }),
+      );
+      return user;
     } catch (error) {
       if (!this.isUniqueConstraintViolation(error)) {
         throw error;
