@@ -13,6 +13,7 @@ import {
   MenuItem,
   TextField,
 } from "@mui/material";
+import { NumberField } from "@/features/shell/number-field";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -79,7 +80,7 @@ export function CarFormDialog({
       fuelType: "",
       transmission: "",
       bodyType: "",
-      odometerKm: 0,
+      odometerKm: "",
       usageTag: "",
       insuranceExpiryDate: "",
       ...defaultValues,
@@ -193,9 +194,8 @@ export function CarFormDialog({
               name="year"
               control={control}
               render={({ field }) => (
-                <TextField
+                <NumberField
                   {...field}
-                  type="number"
                   label="Year"
                   fullWidth
                   error={!!errors.year}
@@ -315,10 +315,8 @@ export function CarFormDialog({
               name="powerBhp"
               control={control}
               render={({ field }) => (
-                <TextField
+                <NumberField
                   {...field}
-                  value={field.value ?? ""}
-                  type="number"
                   label="Power (bhp)"
                   fullWidth
                   error={!!errors.powerBhp}
@@ -332,10 +330,10 @@ export function CarFormDialog({
               name="odometerKm"
               control={control}
               render={({ field }) => (
-                <TextField
+                <NumberField
                   {...field}
-                  type="number"
                   label="Odometer (km)"
+                  placeholder="0"
                   fullWidth
                   error={!!errors.odometerKm}
                   helperText={errors.odometerKm?.message}

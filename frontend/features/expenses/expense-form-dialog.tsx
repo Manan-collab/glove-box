@@ -10,9 +10,11 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  InputAdornment,
   TextField,
   Typography,
 } from "@mui/material";
+import { NumberField } from "@/features/shell/number-field";
 import { useIsPhone } from "@/hooks/use-is-phone";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
@@ -64,7 +66,7 @@ export function ExpenseFormDialog({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       category: "FUEL",
-      amount: 0,
+      amount: "",
       expenseDate: fromISODate(defaultValues?.expenseDate),
       notes: "",
       workshopName: "",
@@ -203,13 +205,17 @@ export function ExpenseFormDialog({
               name="amount"
               control={control}
               render={({ field }) => (
-                <TextField
+                <NumberField
                   {...field}
-                  type="number"
+                  decimals
                   label="Amount"
+                  placeholder="0"
                   fullWidth
                   error={!!errors.amount}
                   helperText={errors.amount?.message}
+                  slotProps={{
+                    input: { startAdornment: <InputAdornment position="start">₹</InputAdornment> },
+                  }}
                 />
               )}
             />
@@ -236,10 +242,8 @@ export function ExpenseFormDialog({
               name="odometerKm"
               control={control}
               render={({ field }) => (
-                <TextField
+                <NumberField
                   {...field}
-                  value={field.value ?? ""}
-                  type="number"
                   label="Odometer (km)"
                   fullWidth
                   error={!!errors.odometerKm}
@@ -256,10 +260,9 @@ export function ExpenseFormDialog({
                   name="litres"
                   control={control}
                   render={({ field }) => (
-                    <TextField
+                    <NumberField
                       {...field}
-                      value={field.value ?? ""}
-                      type="number"
+                      decimals
                       label="Litres"
                       fullWidth
                     />
@@ -271,10 +274,9 @@ export function ExpenseFormDialog({
                   name="fuelPricePerLitre"
                   control={control}
                   render={({ field }) => (
-                    <TextField
+                    <NumberField
                       {...field}
-                      value={field.value ?? ""}
-                      type="number"
+                      decimals
                       label="Price / litre"
                       fullWidth
                     />

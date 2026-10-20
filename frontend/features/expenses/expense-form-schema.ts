@@ -17,7 +17,7 @@ export const expenseFormSchema = z.object({
     "INSURANCE",
     "OTHER",
   ]),
-  amount: z.coerce.number().positive("Enter an amount"),
+  amount: z.coerce.number({ error: "Enter an amount" }).positive("Enter an amount"),
   expenseDate: z.string().min(1, "Required"),
   odometerKm: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),
